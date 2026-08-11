@@ -1,0 +1,22 @@
+{
+  "name": "111",
+  "author": "player4841",
+  "description": "",
+  "theme": {
+    "gui": "light",
+    "accent": {
+      "name": "pink",
+      "color": "hsla(330, 80%, 70%, 1)"
+    },
+    "isDark": false,
+    "displayName": "浅色",
+    "username": "player4841"
+  },
+  "accent": {
+    "name": "pink",
+    "color": "hsla(330, 80%, 70%, 1)"
+  },
+  "isDark": false,
+  "uploadDate": "2026-08-11T05:27:17.575Z",
+  "id": "c_mso7xsg6_jcsu"
+}
