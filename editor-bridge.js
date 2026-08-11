@@ -7,6 +7,9 @@
         connected: false,
         theme: null,
         accent: null,
+        editorUrl: null,    // set by editorConnected payload, e.g. http://localhost:8601/editor.html
+        _forwardReqCounter: 0,
+        _forwardPending: new Map(), // requestId -> {resolve, reject, timeout}
 
         init() {
             window.addEventListener('message', (e) => this._onMessage(e));
@@ -25,12 +28,40 @@
             if (!e.data || !e.data.type) return;
             if (e.data.channel !== CHANNEL_NAME) return;
 
-            const { type, data } = e.data;
+            const { type, data, requestId, error } = e.data;
+
+            // ---- Forwarded GitHub API responses ----
+            if (type === 'forwardGithubTree:result' || type === 'forwardGithubBlob:result') {
+                const pending = this._forwardPending.get(requestId);
+                if (pending) {
+                    clearTimeout(pending.timeout);
+                    this._forwardPending.delete(requestId);
+                    if (data && data.error) {
+                        pending.reject(new Error(data.error));
+                    } else if (error) {
+                        pending.reject(new Error(error));
+                    } else {
+                        pending.resolve(data);
+                    }
+                }
+                return;
+            }
+
             switch (type) {
                 case 'editorConnected':
                     this.connected = true;
+                    // The editor tells us its full page URL so we can build
+                    // correct apply links (editor.html?rwc=...). Fall back to
+                    // document.referrer for older editor versions that don't
+                    // send the field.
+                    if (data && data.editorUrl) {
+                        this.editorUrl = data.editorUrl;
+                    } else if (document.referrer) {
+                        const ref = new URL(document.referrer);
+                        this.editorUrl = ref.origin + ref.pathname;
+                    }
                     this._updateStatusUI();
-                    console.log('[RWC] Editor connected');
+                    console.log('[RWC] Editor connected', this.editorUrl ? 'at ' + this.editorUrl : '');
                     break;
                 case 'editorThemeInfo':
                     this.theme = data.theme;
@@ -54,6 +85,39 @@
             if (window.parent && window.parent !== window) {
                 window.parent.postMessage(message, '*');
             }
+        },
+
+        // Request-response wrapper for forwarded GitHub reads. The editor
+        // runs the actual fetch from a first-party tab context, which
+        // avoids the iframe CORS/fetch failures that show up as
+        // "NetworkError when attempting to fetch resource" inside the
+        // embedded plaza window.
+        _forwardRequest(type, payload, timeoutMs = 30000) {
+            return new Promise((resolve, reject) => {
+                const requestId = ++this._forwardReqCounter;
+                const timeout = setTimeout(() => {
+                    this._forwardPending.delete(requestId);
+                    reject(new Error('Forward request timed out'));
+                }, timeoutMs);
+                this._forwardPending.set(requestId, { resolve, reject, timeout });
+                this._send({ type: type, data: payload, requestId: requestId });
+            });
+        },
+
+        // True when the plaza iframe is embedded in the editor and we can
+        // safely ask the editor tab to proxy API calls for us.
+        canForward() {
+            return this.connected && window.parent && window.parent !== window;
+        },
+
+        forwardGithubTree() {
+            return this._forwardRequest('forwardGithubTree', {})
+                .then(r => r.tree);
+        },
+
+        forwardGithubBlob(sha) {
+            return this._forwardRequest('forwardGithubBlob', { sha: sha })
+                .then(r => r.blob);
         },
 
         requestThemeInfo() {

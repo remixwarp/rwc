@@ -85,11 +85,39 @@
         return btoa(binary);
     }
 
+    // Shared blob-to-meta parser. Works the same whether the blob JSON
+    // came from a direct githubApiRequest() or from the editor-forwarded
+    // bridge helper.
+    function parseMetaBlob(blobData) {
+        const base64 = (blobData.content || '').replace(/\s/g, '');
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return JSON.parse(new TextDecoder('utf-8').decode(bytes));
+    }
+
     async function getConfigList() {
         try {
-            const tree = await fetchJSON(
-                `${GITHUB_API_BASE}/git/trees/main?recursive=1`
-            );
+            const bridge = window.RWCEditorBridge;
+            // When embedded in the editor iframe, ask the editor to run
+            // GitHub API fetches for us. A direct fetch() from the iframe
+            // to api.github.com (even with identical headers) frequently
+            // surfaces as "NetworkError when attempting to fetch resource"
+            // while the same URL opened in a standalone tab works — this
+            // is the iframe CORS/preflight/referrer context the user is
+            // hitting. Fall back to direct fetch when no bridge is
+            // connected (i.e. user opened rwc/index.html as a standalone
+            // tab).
+            const useBridgeForward = bridge && bridge.canForward();
+
+            let tree;
+            if (useBridgeForward) {
+                tree = await bridge.forwardGithubTree();
+            } else {
+                tree = await fetchJSON(
+                    `${GITHUB_API_BASE}/git/trees/main?recursive=1`
+                );
+            }
 
             const configMap = {};
 
@@ -126,23 +154,14 @@
                 const entry = configMap[id];
                 if (!entry.metaSha) continue;
                 try {
-                    // The tree item points at a git blob; fetch it via
-                    // /git/blobs/:sha to get the base64 content. Using
-                    // ?application/vnd.github.v3+json already returns JSON
-                    // with a `content` field (base64, with embedded newlines
-                    // that must be stripped before atob()).
-                    const blobResp = await githubApiRequest(`/git/blobs/${entry.metaSha}`);
-                    const blobData = await blobResp.json();
-                    const base64 = (blobData.content || '').replace(/\s/g, '');
-                    // Mirror of stringToBase64 in reverse: atob → binary
-                    // string → Uint8 bytes → TextDecoder (UTF-8). Using
-                    // decodeURIComponent(escape(...)) would mangle non-ASCII
-                    // characters because the content was written with
-                    // TextEncoder (raw UTF-8 bytes).
-                    const binary = atob(base64);
-                    const bytes = new Uint8Array(binary.length);
-                    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                    const metaContent = JSON.parse(new TextDecoder('utf-8').decode(bytes));
+                    let blobData;
+                    if (useBridgeForward) {
+                        blobData = await bridge.forwardGithubBlob(entry.metaSha);
+                    } else {
+                        const blobResp = await githubApiRequest(`/git/blobs/${entry.metaSha}`);
+                        blobData = await blobResp.json();
+                    }
+                    const metaContent = parseMetaBlob(blobData);
 
                     result.push({
                         id: id,
@@ -414,10 +433,47 @@
         const config = configs.find(c => c.id === id);
         if (!config) return;
 
-        const baseUrl = window.location.origin;
-        const url = new URL(baseUrl);
-        url.searchParams.set('rwc', config.downloadUrl);
-        currentApplyUrl = url.toString();
+        // Two forms of URL are kept in module-level state for the two
+        // apply paths:
+        //   - wrappedApplyUrl  → editor page loaded with ?rwc= query,
+        //                        used for copy-to-clipboard and for opening
+        //                        a brand new editor tab.
+        //   - directApplyUrl   → raw .rwc download URL, passed directly to
+        //                        the editor bridge when the plaza is already
+        //                        embedded inside an editor iframe
+        //                        (previously we sent the wrapped URL through
+        //                        the bridge, causing applyConfigFromUrl to
+        //                        fetch the editor HTML and fail with 404).
+        const bridge = window.RWCEditorBridge;
+        // The wrapped URL must use the EDITOR page URL as its base, NOT
+        // the plaza iframe's own origin (rw-c.pages.dev / localhost:8765).
+        // Using window.location.origin here was the root cause of the
+        // malformed link:
+        //   editor.html?https://rw-c.pages.dev/?rwc=...   WRONG
+        //   editor.html?rwc=https://gh-proxy.org/...      CORRECT
+        let editorBase = bridge && bridge.editorUrl
+            ? bridge.editorUrl
+            : (window.location.origin + window.location.pathname);
+        // Ensure we drop any existing query/hash on the base so
+        // `?rwc=` appends cleanly.
+        try {
+            const baseParsed = new URL(editorBase);
+            baseParsed.search = '';
+            baseParsed.hash = '';
+            editorBase = baseParsed.toString();
+        } catch (_) { /* leave as-is */ }
+
+        // Concatenate the raw download URL directly without URLSearchParams
+        // encoding so users see the readable, original link:
+        //   editor.html?rwc=https://gh-proxy.org/https://raw.githubusercontent.com/...
+        // instead of the percent-encoded form:
+        //   editor.html?rwc=https%3A%2F%2Fgh-proxy.org%2F...
+        // The download value never contains `?`, `#` or `&` so skipping
+        // percent-encoding is safe here and matches the user expectation.
+        const sep = editorBase.includes('?') ? '&' : '?';
+        window._wrappedApplyUrl = `${editorBase}${sep}rwc=${config.downloadUrl}`;
+        window._directApplyUrl = config.downloadUrl;
+        currentApplyUrl = window._wrappedApplyUrl;  // default for display
 
         document.getElementById('applyUrl').textContent = currentApplyUrl;
         document.getElementById('applyModal').style.display = 'flex';
@@ -754,14 +810,21 @@
         });
 
         applyBtn.addEventListener('click', () => {
-            if (!currentApplyUrl) return;
-
             const bridge = window.RWCEditorBridge;
             if (bridge.connected) {
-                bridge.applyConfig(currentApplyUrl);
+                // Inside the editor iframe: pass the raw .rwc file URL
+                // directly so applyConfigFromUrl() can fetch it without
+                // trying to parse an editor HTML page.
+                const direct = window._directApplyUrl;
+                if (!direct) return;
+                bridge.applyConfig(direct);
                 showToast('正在应用到编辑器...', 'success');
             } else {
-                window.open(currentApplyUrl, '_blank');
+                // Opening a new editor tab: pass the editor page URL with
+                // ?rwc= query so checkRwcUrlParam picks it up on load.
+                const wrapped = window._wrappedApplyUrl;
+                if (!wrapped) return;
+                window.open(wrapped, '_blank');
                 showToast('已在新窗口打开', 'success');
             }
             applyModal.style.display = 'none';
