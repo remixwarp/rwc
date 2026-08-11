@@ -194,14 +194,6 @@
                 }
             }
 
-            const importBtn = document.getElementById('importFromEditorBtn');
-            if (importBtn) {
-                importBtn.disabled = !this.connected;
-                const hint = document.getElementById('editorHint');
-                if (hint) {
-                    hint.textContent = this.connected ? '点击导出当前配置' : '(需要编辑器连接)';
-                }
-            }
         },
 
         _updateThemeDetection() {

@@ -596,7 +596,6 @@
         const closeBtn = document.getElementById('closeModal');
         const cancelBtn = document.getElementById('cancelUpload');
         const selectFileBtn = document.getElementById('selectFileBtn');
-        const importEditorBtn = document.getElementById('importFromEditorBtn');
         const fileInput = document.getElementById('fileInput');
         const confirmBtn = document.getElementById('confirmUpload');
         const configName = document.getElementById('configName');
@@ -607,9 +606,16 @@
         const descCount = document.getElementById('descCount');
 
         fabBtn.addEventListener('click', () => {
+            // When embedded in the editor iframe, uploads fail due to CORS.
+            // Redirect the user to the standalone plaza to upload.
+            if (window.RWCEditorBridge && window.RWCEditorBridge.connected) {
+                if (confirm('在编辑器内嵌窗口中无法直接上传配置（跨域限制）。\n\n请转到 https://rw-c.pages.dev/ 进行上传。\n\n点击确定打开链接（新标签页）。')) {
+                    window.open('https://rw-c.pages.dev/', '_blank');
+                }
+                return;
+            }
             modal.style.display = 'flex';
             resetUploadForm();
-            window.RWCEditorBridge.requestThemeInfo();
         });
 
         const closeModalFn = () => { modal.style.display = 'none'; };
@@ -623,10 +629,6 @@
             const file = e.target.files[0];
             if (!file) return;
             handleFileSelected(file);
-        });
-
-        importEditorBtn.addEventListener('click', () => {
-            window.RWCEditorBridge.requestConfigExport();
         });
 
         configName.addEventListener('input', () => {
