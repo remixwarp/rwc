@@ -104,6 +104,17 @@
             const isDarkEl = document.getElementById('isDark');
             const accentColorEl = document.getElementById('accentColor');
             const accentNameEl = document.getElementById('accentName');
+            const authorInput = document.getElementById('configAuthor');
+
+            if (authorInput && this.theme.username && !authorInput.value) {
+                authorInput.value = this.theme.username;
+                const authorCount = document.getElementById('authorCount');
+                if (authorCount) {
+                    authorCount.textContent = this.theme.username.length;
+                }
+                const authorEvt = new Event('input');
+                authorInput.dispatchEvent(authorEvt);
+            }
 
             if (themeEl) {
                 const themeName = this.theme.displayName || this.theme.gui || '未知';

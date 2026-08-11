@@ -38,7 +38,6 @@
 
     let configs = [];
     let pendingFile = null;
-    let editorConfig = null;
     let currentApplyUrl = null;
 
     // ===== GitHub API =====
@@ -102,6 +101,7 @@
                         result.push({
                             id: id,
                             name: metaContent.name || id,
+                            author: metaContent.author || '未知作者',
                             description: metaContent.description || '',
                             theme: metaContent.theme || null,
                             accent: metaContent.accent || null,
@@ -134,6 +134,7 @@
         const fileBase64 = arrayBufferToBase64(fileContent);
         const metaContent = JSON.stringify({
             name: meta.name,
+            author: meta.author || '未知作者',
             description: meta.description || '',
             theme: meta.theme,
             accent: meta.accent,
@@ -240,6 +241,13 @@
                 <div class="config-card-header">
                     <span class="config-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
                     <span class="config-date">${formatDate(c.uploadDate)}</span>
+                </div>
+                <div class="config-card-author">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    <span>${escapeHtml(c.author || '未知作者')}</span>
                 </div>
                 <div class="config-meta">
                     <div class="config-meta-item">
@@ -352,8 +360,10 @@
         const fileInput = document.getElementById('fileInput');
         const confirmBtn = document.getElementById('confirmUpload');
         const configName = document.getElementById('configName');
+        const configAuthor = document.getElementById('configAuthor');
         const configDesc = document.getElementById('configDesc');
         const nameCount = document.getElementById('nameCount');
+        const authorCount = document.getElementById('authorCount');
         const descCount = document.getElementById('descCount');
 
         fabBtn.addEventListener('click', () => {
@@ -384,6 +394,11 @@
             updateUploadButton();
         });
 
+        configAuthor.addEventListener('input', () => {
+            authorCount.textContent = configAuthor.value.length;
+            updateUploadButton();
+        });
+
         configDesc.addEventListener('input', () => {
             descCount.textContent = configDesc.value.length;
         });
@@ -395,15 +410,16 @@
 
     function resetUploadForm() {
         pendingFile = null;
-        editorConfig = null;
         window._pendingEditorConfig = null;
 
         document.getElementById('fileInfo').style.display = 'none';
         document.getElementById('fileName').textContent = '-';
         document.getElementById('fileSize').textContent = '-';
         document.getElementById('configName').value = '';
+        document.getElementById('configAuthor').value = '';
         document.getElementById('configDesc').value = '';
         document.getElementById('nameCount').textContent = '0';
+        document.getElementById('authorCount').textContent = '0';
         document.getElementById('descCount').textContent = '0';
         document.getElementById('detectedTheme').textContent = '检测中...';
         document.getElementById('detectedTheme').className = 'theme-value';
@@ -421,7 +437,7 @@
         }
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             pendingFile = {
                 name: file.name,
                 size: file.size,
@@ -442,23 +458,146 @@
                 document.getElementById('nameCount').textContent = baseName.length;
             }
 
+            await detectThemeFromFile(e.target.result);
+
             updateUploadButton();
         };
         reader.readAsArrayBuffer(file);
     }
 
+    async function detectThemeFromFile(arrayBuffer) {
+        try {
+            if (typeof JSZip === 'undefined') {
+                console.warn('[RWC] JSZip not loaded, skipping theme detection from file');
+                return;
+            }
+
+            const zip = await JSZip.loadAsync(arrayBuffer);
+            const settingsFile = zip.file('settings.json');
+            if (!settingsFile) {
+                console.warn('[RWC] settings.json not found in .rwc file');
+                return;
+            }
+
+            const settingsText = await settingsFile.async('text');
+            const settings = JSON.parse(settingsText);
+            const ls = settings.localStorageSettings || {};
+
+            let themeGui = 'light';
+            let accentName = 'Pale Blue';
+            let isDark = false;
+
+            if (ls['tw:theme']) {
+                try {
+                    const themeData = JSON.parse(ls['tw:theme']);
+                    themeGui = themeData.gui || 'light';
+                    accentName = themeData.accent || 'Pale Blue';
+                    isDark = themeGui === 'dark' || themeGui === 'deepdark' ||
+                        themeGui === 'midnight' || themeGui === 'genesis dark';
+                } catch (e) {
+                    if (ls['tw:theme'] === 'dark') { themeGui = 'dark'; isDark = true; }
+                    if (ls['tw:theme'] === 'light') { themeGui = 'light'; isDark = false; }
+                }
+            } else if (settings.addonSettings && settings.addonSettings.core) {
+                isDark = settings.addonSettings.core.lightTheme === false;
+                if (isDark) themeGui = 'dark';
+            }
+
+            const accentColors = {
+                'Red': 'hsl(0, 100%, 65%)',
+                'Orange': '#ff7f2a',
+                'Yellow': 'hsl(50, 100%, 50%)',
+                'Green': '#4caf50',
+                'Green (V2)': 'hsl(110, 100%, 65%)',
+                'Dark Green': '#13261f',
+                'Blue': 'hsl(215, 100%, 65%)',
+                'Light Blue': 'hsl(194, 100%, 50%)',
+                'Pale Blue': 'hsl(210, 100%, 65%)',
+                'Purple': 'hsl(280, 100%, 65%)',
+                'Pink': 'hsl(330, 100%, 65%)',
+                'Pink (V2)': 'hsl(325, 100%, 60%)',
+                'Sunset': 'hsl(30, 100%, 65%)',
+                'Ocean': 'oklab(0.65 -0.08 -0.12)',
+                'Aurora': 'oklab(0.70 -0.10 0.08)',
+                'Cosmic': 'oklab(0.68 0.15 -0.08)',
+                'Fire': 'oklab(0.68 0.18 0.12)',
+                'Nebula': 'oklab(0.55 0.08 -0.12)',
+                'Lavender': 'oklab(0.75 0.08 -0.12)',
+                'Mint': 'oklab(0.78 -0.12 0.08)',
+                'Cherry': 'oklab(0.70 0.18 0.08)',
+                'Sky': 'oklab(0.60 0.14 0.08)',
+                'Forest': 'oklab(0.65 -0.12 0.12)',
+                'Coral': 'oklab(0.72 0.14 0.10)',
+                'Rainbow': 'hsl(0, 100%, 65%)',
+                'Green Tea': '#91B821',
+                'Eggplant Purple': '#49214A',
+                'Trans': 'hsl(250, 100%, 65%)',
+                'Gay': '#078e70',
+                'Bi': 'oklab(0.55 0.12 -0.07)',
+                'Pan': 'hsl(240, 100%, 65%)',
+                'Lesbian': 'oklab(0.65 0.15 -0.04)',
+                'Nonbinary': 'oklab(0.59 0.11 -0.15)',
+                'Ace': 'oklab(0.42 0.16 -0.10)',
+                'Rotur': '#ff6600',
+                'Matrix': '#00a832',
+                'Honey': '#e6a817',
+                '02e': '#00BAAD',
+                'CE': '#ff9b86',
+                'Miku': '#39c5bb',
+                'Magenta': '#FF269A',
+                'TY': '#800080',
+                'Oubi': '#3C7699',
+                'Omnimax Blue': '#4aa8ff',
+                'Vaporwave': 'hsl(250, 100%, 65%)',
+                'Astra': '#0099ff'
+            };
+
+            const themeInfo = {
+                gui: themeGui,
+                accent: {
+                    name: accentName,
+                    color: accentColors[accentName] || 'hsl(210, 100%, 65%)'
+                },
+                isDark: isDark,
+                displayName: THEME_NAMES[themeGui] || themeGui,
+                username: ls['tw:username'] || ''
+            };
+
+            const bridge = window.RWCEditorBridge;
+            bridge.theme = themeInfo;
+            bridge.accent = themeInfo.accent;
+            bridge._updateThemeDetection();
+
+            if (themeInfo.username && !document.getElementById('configAuthor').value) {
+                document.getElementById('configAuthor').value = themeInfo.username;
+                document.getElementById('authorCount').textContent = themeInfo.username.length;
+                updateUploadButton();
+            }
+
+            console.log('[RWC] Theme detected from file:', themeInfo);
+        } catch (err) {
+            console.error('[RWC] Failed to detect theme from file:', err);
+        }
+    }
+
     function updateUploadButton() {
         const hasName = document.getElementById('configName').value.trim().length > 0;
-        const hasFile = pendingFile !== null || editorConfig !== null || window._pendingEditorConfig !== null;
-        document.getElementById('confirmUpload').disabled = !(hasName && hasFile);
+        const hasAuthor = document.getElementById('configAuthor').value.trim().length > 0;
+        const hasFile = pendingFile !== null || window._pendingEditorConfig !== null;
+        document.getElementById('confirmUpload').disabled = !(hasName && hasAuthor && hasFile);
     }
 
     async function doUpload() {
         const name = document.getElementById('configName').value.trim();
+        const author = document.getElementById('configAuthor').value.trim();
         const description = document.getElementById('configDesc').value.trim();
 
         if (!name) {
             showToast('请输入配置名称', 'error');
+            return;
+        }
+        if (!author) {
+            showToast('请输入作者名称', 'error');
             return;
         }
 
@@ -471,10 +610,10 @@
             showToast('请先选择文件或从编辑器导入', 'error');
             return;
         }
-
         const bridge = window.RWCEditorBridge;
         const meta = {
             name: name,
+            author: author,
             description: description,
             theme: bridge.theme,
             accent: bridge.accent,
@@ -574,7 +713,37 @@
         }
     }
 
+    function initThemeToggle() {
+        const btn = document.getElementById('themeToggleBtn');
+        const icon = document.getElementById('themeToggleIcon');
+
+        const saved = localStorage.getItem('rwc:theme') || 'auto';
+        applyTheme(saved);
+
+        btn.addEventListener('click', () => {
+            const current = document.documentElement.getAttribute('data-theme');
+            let next;
+            if (current === 'dark') next = 'light';
+            else if (current === 'light') next = 'dark';
+            else next = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark';
+
+            applyTheme(next);
+            localStorage.setItem('rwc:theme', next);
+        });
+    }
+
+    function applyTheme(theme) {
+        const icon = document.getElementById('themeToggleIcon');
+        if (theme === 'auto') {
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+        } else {
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+    }
+
     function init() {
+        initThemeToggle();
         window.RWCEditorBridge.init();
         setupUploadFlow();
         setupApplyFlow();
