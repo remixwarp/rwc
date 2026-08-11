@@ -217,6 +217,35 @@
     // This avoids the legacy Contents API pattern of issuing two separate
     // PUTs that could leave a half-written config folder if the second
     // request fails (and was the source of intermittent network errors).
+    // All write operations require the auth token (so force auth=true).
+    // When embedded in the editor iframe, forward POST/PATCH/DELETE through
+    // the bridge so the editor (first-party tab) runs the fetch — avoids
+    // CORS preflight "NetworkError when attempting to fetch resource".
+    // Falls back to direct githubApiRequest when standalone.
+    async function githubWrite(path, method, bodyObj) {
+        const bridge = window.RWCEditorBridge;
+        if (bridge && bridge.canForward()) {
+            const result = await bridge.forwardGithubWrite(path, method, JSON.stringify(bodyObj));
+            return result.result;
+        }
+        const res = await githubApiRequest(path, {
+            method: method,
+            body: JSON.stringify(bodyObj)
+        }, true);
+        return res.json();
+    }
+
+    // Read with auth through the bridge when embedded, otherwise direct.
+    async function githubRead(path) {
+        const bridge = window.RWCEditorBridge;
+        if (bridge && bridge.canForward()) {
+            const result = await bridge.forwardGithubWrite(path, 'GET', null);
+            return result.result;
+        }
+        const res = await githubApiRequest(path, {}, true);
+        return res.json();
+    }
+
     async function uploadConfig(configData, meta, fileContent) {
         const configId = 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
         const fileName = (meta.name || 'config').replace(/[^\w\u4e00-\u9fa5-]/g, '_') + '.rwc';
@@ -237,106 +266,69 @@
         }, null, 2);
         const metaBase64 = stringToBase64(metaContent);
 
-        // All write operations require the auth token (so force auth=true).
-        // Step 1 reads (ref + commit) could be anonymous but using auth here
-        // keeps compatibility with private fork repos users may use.
-        const refResp = await githubApiRequest('/git/ref/heads/main', {}, true);
-        const refData = await refResp.json();
+        // 1) Get current HEAD ref and base tree
+        const refData = await githubRead('/git/ref/heads/main');
         const headSha = refData.object.sha;
 
-        const commitResp = await githubApiRequest(`/git/commits/${headSha}`, {}, true);
-        const commitData = await commitResp.json();
+        const commitData = await githubRead(`/git/commits/${headSha}`);
         const baseTreeSha = commitData.tree.sha;
 
         // 2) Create blobs for both files
-        const [configBlobResp, metaBlobResp] = await Promise.all([
-            githubApiRequest('/git/blobs', {
-                method: 'POST',
-                body: JSON.stringify({ content: fileBase64, encoding: 'base64' })
-            }, true),
-            githubApiRequest('/git/blobs', {
-                method: 'POST',
-                body: JSON.stringify({ content: metaBase64, encoding: 'base64' })
-            }, true)
+        const [configBlob, metaBlob] = await Promise.all([
+            githubWrite('/git/blobs', 'POST', { content: fileBase64, encoding: 'base64' }),
+            githubWrite('/git/blobs', 'POST', { content: metaBase64, encoding: 'base64' })
         ]);
-        const configBlobSha = (await configBlobResp.json()).sha;
-        const metaBlobSha = (await metaBlobResp.json()).sha;
 
         // 3) Build a new tree that inherits the current tree and overrides
         //    just the two new files (preserves the rest of the repo).
-        const treeResp = await githubApiRequest('/git/trees', {
-            method: 'POST',
-            body: JSON.stringify({
-                base_tree: baseTreeSha,
-                tree: [
-                    { path: configPath, mode: '100644', type: 'blob', sha: configBlobSha },
-                    { path: metaPath,   mode: '100644', type: 'blob', sha: metaBlobSha }
-                ]
-            })
-        }, true);
-        const newTreeSha = (await treeResp.json()).sha;
+        const newTree = await githubWrite('/git/trees', 'POST', {
+            base_tree: baseTreeSha,
+            tree: [
+                { path: configPath, mode: '100644', type: 'blob', sha: configBlob.sha },
+                { path: metaPath,   mode: '100644', type: 'blob', sha: metaBlob.sha }
+            ]
+        });
 
         // 4) Create a commit pointing to this new tree
-        const newCommitResp = await githubApiRequest('/git/commits', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: commitMessage,
-                tree: newTreeSha,
-                parents: [headSha]
-            })
-        }, true);
-        const newCommitSha = (await newCommitResp.json()).sha;
+        const newCommit = await githubWrite('/git/commits', 'POST', {
+            message: commitMessage,
+            tree: newTree.sha,
+            parents: [headSha]
+        });
 
         // 5) Fast-forward the main branch ref to the new commit
-        await githubApiRequest('/git/refs/heads/main', {
-            method: 'PATCH',
-            body: JSON.stringify({ sha: newCommitSha, force: false })
-        }, true);
+        await githubWrite('/git/refs/heads/main', 'PATCH', { sha: newCommit.sha, force: false });
 
         return { id: configId, path: configPath, fileName };
     }
 
     async function deleteConfig(config) {
-        // Delete two files in one atomic commit via Git Data API instead of
-        // two separate DELETE /contents requests. All calls are authed.
+        // Delete two files in one atomic commit via Git Data API.
         const metaPath = `${CONFIGS_PATH}/${config.id}/meta.json`;
         const configPath = `${CONFIGS_PATH}/${config.id}/${config.fileName}`;
         const commitMessage = `Delete config: ${config.name}`;
 
-        const refResp = await githubApiRequest('/git/ref/heads/main', {}, true);
-        const refData = await refResp.json();
+        const refData = await githubRead('/git/ref/heads/main');
         const headSha = refData.object.sha;
 
-        const commitResp = await githubApiRequest(`/git/commits/${headSha}`, {}, true);
-        const commitData = await commitResp.json();
+        const commitData = await githubRead(`/git/commits/${headSha}`);
         const baseTreeSha = commitData.tree.sha;
 
-        const treeResp = await githubApiRequest('/git/trees', {
-            method: 'POST',
-            body: JSON.stringify({
-                base_tree: baseTreeSha,
-                tree: [
-                    { path: configPath, mode: '100644', type: 'blob', sha: null },
-                    { path: metaPath,   mode: '100644', type: 'blob', sha: null }
-                ]
-            })
-        }, true);
-        const newTreeSha = (await treeResp.json()).sha;
+        const newTree = await githubWrite('/git/trees', 'POST', {
+            base_tree: baseTreeSha,
+            tree: [
+                { path: configPath, mode: '100644', type: 'blob', sha: null },
+                { path: metaPath,   mode: '100644', type: 'blob', sha: null }
+            ]
+        });
 
-        const newCommitResp = await githubApiRequest('/git/commits', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: commitMessage,
-                tree: newTreeSha,
-                parents: [headSha]
-            })
-        }, true);
-        const newCommitSha = (await newCommitResp.json()).sha;
+        const newCommit = await githubWrite('/git/commits', 'POST', {
+            message: commitMessage,
+            tree: newTree.sha,
+            parents: [headSha]
+        });
 
-        await githubApiRequest('/git/refs/heads/main', {
-            method: 'PATCH',
-            body: JSON.stringify({ sha: newCommitSha, force: false })
-        }, true);
+        await githubWrite('/git/refs/heads/main', 'PATCH', { sha: newCommit.sha, force: false });
     }
 
     function arrayBufferToBase64(buffer) {
@@ -352,12 +344,44 @@
 
     // ===== UI Rendering =====
 
+    let searchQuery = '';
+
+    function getFilteredConfigs() {
+        if (!searchQuery) return configs;
+        const q = searchQuery.toLowerCase();
+        return configs.filter(c => {
+            const name = (c.name || '').toLowerCase();
+            const author = (c.author || '').toLowerCase();
+            const desc = (c.description || '').toLowerCase();
+            const themeGui = (c.theme && c.theme.gui || '').toLowerCase();
+            const themeName = (THEME_NAMES[c.theme && c.theme.gui] || '').toLowerCase();
+            const accentName = (c.accent && c.accent.name || '').toLowerCase();
+            const accentDisplay = (ACCENT_NAMES[c.accent && c.accent.name] || '').toLowerCase();
+            const accentColor = (c.accent && c.accent.color || '').toLowerCase();
+            return name.includes(q) || author.includes(q) || desc.includes(q) ||
+                   themeGui.includes(q) || themeName.includes(q) ||
+                   accentName.includes(q) || accentDisplay.includes(q) ||
+                   accentColor.includes(q);
+        });
+    }
+
     function renderConfigs() {
         const grid = document.getElementById('configGrid');
         const emptyState = document.getElementById('emptyState');
         const loadingState = document.getElementById('loadingState');
+        const resultCount = document.getElementById('searchResultCount');
 
         loadingState.style.display = 'none';
+
+        const filtered = getFilteredConfigs();
+
+        // Update result count indicator
+        if (searchQuery) {
+            resultCount.style.display = 'inline';
+            resultCount.textContent = `找到 ${filtered.length} / ${configs.length} 个配置`;
+        } else {
+            resultCount.style.display = 'none';
+        }
 
         if (!configs.length) {
             grid.style.display = 'none';
@@ -365,10 +389,22 @@
             return;
         }
 
+        if (!filtered.length) {
+            grid.style.display = 'none';
+            emptyState.style.display = 'flex';
+            emptyState.querySelector('h3').textContent = '没有匹配的配置';
+            emptyState.querySelector('p').textContent = '试试其他关键词';
+            return;
+        }
+
+        // Reset empty state text
+        emptyState.querySelector('h3').textContent = '暂无配置';
+        emptyState.querySelector('p').textContent = '点击右下角的 + 按钮上传你的第一个配置';
+
         emptyState.style.display = 'none';
         grid.style.display = 'grid';
 
-        grid.innerHTML = configs.map(c => `
+        grid.innerHTML = filtered.map(c => `
             <div class="config-card" data-id="${c.id}">
                 <div class="config-card-header">
                     <span class="config-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
@@ -467,16 +503,26 @@
         //                        (previously we sent the wrapped URL through
         //                        the bridge, causing applyConfigFromUrl to
         //                        fetch the editor HTML and fail with 404).
+        // Determine the editor page URL that will receive ?rwc=... and
+        // trigger checkRwcUrlParam on load.
+        //
+        // - When the plaza is embedded in the editor iframe, the editor
+        //   sends its own page URL via bridge.editorUrl. Use that as-is.
+        // - When the plaza is standalone (opened directly at rw-c.pages.dev),
+        //   the apply link should point to the deployed editor at
+        //   remixwarp.pages.dev/editor.html.
+        // - When the plaza is served from any other origin (e.g. a local
+        //   dev server), use that same origin + /editor.html.
+        const plazaOrigin = window.location.origin;
         const bridge = window.RWCEditorBridge;
-        // The wrapped URL must use the EDITOR page URL as its base, NOT
-        // the plaza iframe's own origin (rw-c.pages.dev / localhost:8765).
-        // Using window.location.origin here was the root cause of the
-        // malformed link:
-        //   editor.html?https://rw-c.pages.dev/?rwc=...   WRONG
-        //   editor.html?rwc=https://gh-proxy.org/...      CORRECT
-        let editorBase = bridge && bridge.editorUrl
-            ? bridge.editorUrl
-            : (window.location.origin + window.location.pathname);
+        let editorBase;
+        if (bridge && bridge.editorUrl) {
+            editorBase = bridge.editorUrl;
+        } else if (plazaOrigin === 'https://rw-c.pages.dev') {
+            editorBase = 'https://remixwarp.pages.dev/editor.html';
+        } else {
+            editorBase = plazaOrigin + '/editor.html';
+        }
         // Ensure we drop any existing query/hash on the base so
         // `?rwc=` appends cleanly.
         try {
@@ -516,6 +562,31 @@
             showToast('删除失败: ' + err.message, 'error');
         });
     };
+
+    // ===== Search =====
+
+    function setupSearch() {
+        const searchInput = document.getElementById('searchInput');
+        const clearBtn = document.getElementById('searchClearBtn');
+        let debounceTimer = null;
+
+        searchInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                searchQuery = searchInput.value.trim();
+                clearBtn.style.display = searchQuery ? 'flex' : 'none';
+                renderConfigs();
+            }, 200);
+        });
+
+        clearBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            searchQuery = '';
+            clearBtn.style.display = 'none';
+            renderConfigs();
+            searchInput.focus();
+        });
+    }
 
     // ===== Upload Flow =====
 
@@ -805,6 +876,11 @@
         } catch (err) {
             console.error('Upload failed:', err);
             showToast('上传失败: ' + err.message, 'error');
+            // Show a modal dialog with a direct link to the standalone plaza
+            // so the user can upload from outside the iframe (avoids CORS).
+            if (confirm('上传失败: ' + err.message + '\n\n可直接访问 https://rw-c.pages.dev/ 进行上传\n\n点击确定打开链接（在新标签页中）')) {
+                window.open('https://rw-c.pages.dev/', '_blank');
+            }
         } finally {
             uploadBtn.innerHTML = originalText;
             updateUploadButton();
@@ -833,6 +909,8 @@
         });
 
         applyBtn.addEventListener('click', () => {
+            if (!confirm('即将应用此配置，这将覆盖您当前的设置。确定继续？')) return;
+
             const bridge = window.RWCEditorBridge;
             if (bridge.connected) {
                 // Inside the editor iframe: pass the raw .rwc file URL
@@ -841,7 +919,11 @@
                 const direct = window._directApplyUrl;
                 if (!direct) return;
                 bridge.applyConfig(direct);
-                showToast('正在应用到编辑器...', 'success');
+                showToast('正在应用到编辑器，刷新以生效', 'success');
+                // Show red warning modal immediately so user knows to refresh
+                if (bridge.showRefreshWarningModal) {
+                    bridge.showRefreshWarningModal();
+                }
             } else {
                 // Opening a new editor tab: pass the editor page URL with
                 // ?rwc= query so checkRwcUrlParam picks it up on load.
@@ -924,6 +1006,7 @@
     function init() {
         initThemeToggle();
         window.RWCEditorBridge.init();
+        setupSearch();
         setupUploadFlow();
         setupApplyFlow();
 

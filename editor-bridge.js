@@ -51,7 +51,9 @@
             const { type, data, requestId, error } = e.data;
 
             // ---- Forwarded GitHub API responses ----
-            if (type === 'forwardGithubTree:result' || type === 'forwardGithubBlob:result') {
+            if (type === 'forwardGithubTree:result' ||
+                type === 'forwardGithubBlob:result' ||
+                type === 'forwardGithubWrite:result') {
                 const pending = this._forwardPending.get(requestId);
                 if (pending) {
                     clearTimeout(pending.timeout);
@@ -146,6 +148,19 @@
         forwardGithubBlob(sha) {
             return this._forwardRequest('forwardGithubBlob', { sha: sha })
                 .then(r => r.blob);
+        },
+
+        // Generic write/delete forwarder. The plaza can't make POST/PATCH/
+        // DELETE calls to api.github.com from inside the cross-origin iframe
+        // because the Authorization header triggers a CORS preflight that
+        // the browser blocks. Forwarding the raw path + method + body to the
+        // editor (first-party tab context) lets the write succeed.
+        forwardGithubWrite(path, method, body) {
+            return this._forwardRequest('forwardGithubWrite', {
+                path: path,
+                method: method,
+                body: body
+            }, 60000);
         },
 
         requestThemeInfo() {
@@ -256,10 +271,31 @@
 
         _handleApplyResult(data) {
             if (data.success) {
-                this._showToast('配置已应用到编辑器', 'success');
+                this._showToast('配置已应用到编辑器，刷新以生效', 'success');
+                // Show persistent badge that stays after toast fades
+                const badge = document.getElementById('refreshBadge');
+                if (badge) badge.style.display = 'flex';
+                // Show big red warning modal
+                this.showRefreshWarningModal();
             } else {
                 this._showToast('应用失败: ' + (data.error || '未知错误'), 'error');
             }
+        },
+
+        showRefreshWarningModal() {
+            const modal = document.getElementById('refreshWarningModal');
+            const closeBtn = document.getElementById('refreshWarningCloseBtn');
+            if (!modal) return;
+            modal.style.display = 'flex';
+            // Bind close handler each time (safe since we rebind every show)
+            if (closeBtn) {
+                closeBtn.onclick = () => { modal.style.display = 'none'; };
+            }
+            // Auto-hide after 8 seconds in case user doesn't click
+            clearTimeout(this._refreshModalTimer);
+            this._refreshModalTimer = setTimeout(() => {
+                modal.style.display = 'none';
+            }, 8000);
         },
 
         _formatSize(bytes) {
