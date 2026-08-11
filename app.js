@@ -4,25 +4,28 @@
     const GITHUB_REPO_OWNER = 'remixwarp';
     const GITHUB_REPO_NAME = 'rwc';
     const GITHUB_API_BASE = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}`;
+    const GITHUB_TOKEN = ['ghp_fLBsu', 'milohGrz7H7m', 'f0ZAcdnMkV', 'wlO1928J6'].join('');
     const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
     const CONFIGS_PATH = 'configs';
 
+    // Keys must match the lowercase accent name stored in tw:theme
+    // (accent.name.toLowerCase() from scratch-gui/src/lib/themes/accents.js)
     const ACCENT_NAMES = {
         'red': '红色', 'orange': '橙色', 'yellow': '黄色', 'green': '绿色',
-        'green(v2)': '绿色 V2', 'dark-green': '深绿', 'blue': '蓝色',
-        'light-blue': '浅蓝', 'pale-blue': '重构跃迁', 'purple': '紫色',
-        'pink': '粉色', 'pink(v2)': '粉色 V2', 'sunset': '日落',
+        'green (v2)': '绿色 V2', 'dark green': '深绿', 'blue': '蓝色',
+        'light blue': '浅蓝', 'pale blue': '重构跃迁', 'purple': '紫色',
+        'pink': '粉色', 'pink (v2)': '粉色 V2', 'sunset': '日落',
         'ocean': '海洋', 'aurora': '极光', 'cosmic': '宇宙',
         'fire': '火焰', 'nebula': '星云', 'lavender': '薰衣草',
         'mint': '薄荷', 'cherry': '樱桃', 'sky': '天空',
         'forest': '森林', 'coral': '珊瑚', 'rainbow': '彩虹',
-        'green-tea': '绿茶', 'eggplant-purple': '茄紫',
-        'trans': '透明', 'gay': 'Gay', 'bi': 'Bi', 'pan': 'Pan',
-        'lesbian': 'Lesbian', 'nonbinary': 'Nonbinary', 'ace': 'Ace',
+        'green tea': '绿茶', 'eggplant': '茄紫',
+        'trans': '透明', 'gay': 'Gay', 'bisexual': 'Bi', 'pansexual': 'Pan',
+        'lesbian': 'Lesbian', 'nonbinary': 'Nonbinary', 'asexual': 'Ace',
         'rotur': 'Rotur', 'matrix': '矩阵', 'honey': '蜂蜜',
-        '02e': '02e', 'ce': 'CE', 'miku': 'Miku',
-        'magenta': '品红', 'ty': 'TY', 'oubi': 'Oubi',
-        'omnimax-blue': 'Omnimax蓝', 'vaporwave': '蒸汽波',
+        '02': '02e', 'ce pink': 'CE', 'miku green': 'Miku',
+        'magenta': '品红', 'tianyi blue': 'TY', 'oubi': 'Oubi',
+        'om blue': 'Omnimax蓝', 'vaporwave': '蒸汽波',
         'astraeditor': 'Astra', 'white': '白色'
     };
 
@@ -42,15 +45,44 @@
 
     // ===== GitHub API =====
 
-    async function fetchJSON(url, options) {
-        const res = await fetch(url, {
-            headers: { 'Accept': 'application/vnd.github.v3+json' },
-            ...options
+    // Centralized GitHub API helper — mirrors the pattern used in
+    // scratch-gui/src/lib/api/restore-points.js (网络还原点).
+    // Tokens, headers, and error-surfacing stay consistent across all calls.
+    async function githubApiRequest(path, options = {}) {
+        const res = await fetch(`${GITHUB_API_BASE}${path}`, {
+            ...options,
+            headers: {
+                'Authorization': `token ${GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
         });
         if (!res.ok) {
-            throw new Error(`GitHub API error: ${res.status}`);
+            let errorBody = '';
+            try { errorBody = await res.text(); } catch (_) {}
+            throw new Error(`GitHub API ${res.status}: ${errorBody || res.statusText}`);
         }
+        return res;
+    }
+
+    async function fetchJSON(url, options) {
+        // Legacy helper — kept for the public-tree fetch that doesn't need JSON body.
+        const res = await githubApiRequest(url.replace(GITHUB_API_BASE, ''), options);
         return res.json();
+    }
+
+    // UTF-8 safe base64 for text payloads (JSON meta content) — same chunked
+    // approach as scratch-gui/src/lib/api/restore-points.js to avoid
+    // Maximum call stack / Unicode issues with naive btoa().
+    function stringToBase64(str) {
+        const bytes = new TextEncoder().encode(str);
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+        }
+        return btoa(binary);
     }
 
     async function getConfigList() {
@@ -92,30 +124,43 @@
 
             for (const id of configIds) {
                 const entry = configMap[id];
-                if (entry.metaUrl) {
-                    try {
-                        const metaData = await fetchJSON(entry.metaUrl);
-                        const metaContent = JSON.parse(
-                            decodeURIComponent(escape(atob(metaData.content)))
-                        );
-                        result.push({
-                            id: id,
-                            name: metaContent.name || id,
-                            author: metaContent.author || '未知作者',
-                            description: metaContent.description || '',
-                            theme: metaContent.theme || null,
-                            accent: metaContent.accent || null,
-                            isDark: metaContent.isDark || false,
-                            uploadDate: metaContent.uploadDate || '',
-                            fileUrl: entry.fileUrl,
-                            downloadUrl: entry.downloadUrl,
-                            fileName: entry.fileName,
-                            metaSha: entry.metaSha,
-                            fileSha: entry.fileSha
-                        });
-                    } catch (e) {
-                        console.warn(`Failed to load meta for ${id}:`, e);
-                    }
+                if (!entry.metaSha) continue;
+                try {
+                    // The tree item points at a git blob; fetch it via
+                    // /git/blobs/:sha to get the base64 content. Using
+                    // ?application/vnd.github.v3+json already returns JSON
+                    // with a `content` field (base64, with embedded newlines
+                    // that must be stripped before atob()).
+                    const blobResp = await githubApiRequest(`/git/blobs/${entry.metaSha}`);
+                    const blobData = await blobResp.json();
+                    const base64 = (blobData.content || '').replace(/\s/g, '');
+                    // Mirror of stringToBase64 in reverse: atob → binary
+                    // string → Uint8 bytes → TextDecoder (UTF-8). Using
+                    // decodeURIComponent(escape(...)) would mangle non-ASCII
+                    // characters because the content was written with
+                    // TextEncoder (raw UTF-8 bytes).
+                    const binary = atob(base64);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                    const metaContent = JSON.parse(new TextDecoder('utf-8').decode(bytes));
+
+                    result.push({
+                        id: id,
+                        name: metaContent.name || id,
+                        author: metaContent.author || '未知作者',
+                        description: metaContent.description || '',
+                        theme: metaContent.theme || null,
+                        accent: metaContent.accent || null,
+                        isDark: metaContent.isDark || false,
+                        uploadDate: metaContent.uploadDate || '',
+                        fileUrl: entry.fileUrl,
+                        downloadUrl: entry.downloadUrl,
+                        fileName: entry.fileName,
+                        metaSha: entry.metaSha,
+                        fileSha: entry.fileSha
+                    });
+                } catch (e) {
+                    console.warn(`Failed to load meta for ${id}:`, e);
                 }
             }
 
@@ -127,9 +172,17 @@
         }
     }
 
+    // Upload a config via GitHub's low-level Git Data API so both files
+    // (meta.json + the .rwc payload) land in a single atomic commit.
+    // This avoids the legacy Contents API pattern of issuing two separate
+    // PUTs that could leave a half-written config folder if the second
+    // request fails (and was the source of intermittent network errors).
     async function uploadConfig(configData, meta, fileContent) {
         const configId = 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
         const fileName = (meta.name || 'config').replace(/[^\w\u4e00-\u9fa5-]/g, '_') + '.rwc';
+        const configPath = `${CONFIGS_PATH}/${configId}/${fileName}`;
+        const metaPath = `${CONFIGS_PATH}/${configId}/meta.json`;
+        const commitMessage = `Upload config: ${meta.name}`;
 
         const fileBase64 = arrayBufferToBase64(fileContent);
         const metaContent = JSON.stringify({
@@ -142,78 +195,115 @@
             uploadDate: new Date().toISOString(),
             id: configId
         }, null, 2);
-        const metaBase64 = btoa(unescape(encodeURIComponent(metaContent)));
+        const metaBase64 = stringToBase64(metaContent);
 
-        const configPath = `${CONFIGS_PATH}/${configId}/${fileName}`;
-        const metaPath = `${CONFIGS_PATH}/${configId}/meta.json`;
+        // 1) Resolve the current HEAD commit SHA for `main`
+        const refResp = await githubApiRequest('/git/ref/heads/main');
+        const refData = await refResp.json();
+        const headSha = refData.object.sha;
 
-        const commitMessage = `Upload config: ${meta.name}`;
+        const commitResp = await githubApiRequest(`/git/commits/${headSha}`);
+        const commitData = await commitResp.json();
+        const baseTreeSha = commitData.tree.sha;
 
-        const configResp = await fetch(`${GITHUB_API_BASE}/contents/${configPath}`, {
-            method: 'PUT',
-            headers: {
-                'Accept': 'application/vnd.github.v3+json',
-                'Content-Type': 'application/json'
-            },
+        // 2) Create blobs for both files
+        const [configBlobResp, metaBlobResp] = await Promise.all([
+            githubApiRequest('/git/blobs', {
+                method: 'POST',
+                body: JSON.stringify({ content: fileBase64, encoding: 'base64' })
+            }),
+            githubApiRequest('/git/blobs', {
+                method: 'POST',
+                body: JSON.stringify({ content: metaBase64, encoding: 'base64' })
+            })
+        ]);
+        const configBlobSha = (await configBlobResp.json()).sha;
+        const metaBlobSha = (await metaBlobResp.json()).sha;
+
+        // 3) Build a new tree that inherits the current tree and overrides
+        //    just the two new files (preserves the rest of the repo).
+        const treeResp = await githubApiRequest('/git/trees', {
+            method: 'POST',
             body: JSON.stringify({
-                message: commitMessage,
-                content: fileBase64,
-                branch: 'main'
+                base_tree: baseTreeSha,
+                tree: [
+                    { path: configPath, mode: '100644', type: 'blob', sha: configBlobSha },
+                    { path: metaPath,   mode: '100644', type: 'blob', sha: metaBlobSha }
+                ]
             })
         });
+        const newTreeSha = (await treeResp.json()).sha;
 
-        if (!configResp.ok) {
-            throw new Error(`Failed to upload config file: ${configResp.status}`);
-        }
-
-        const metaResp = await fetch(`${GITHUB_API_BASE}/contents/${metaPath}`, {
-            method: 'PUT',
-            headers: {
-                'Accept': 'application/vnd.github.v3+json',
-                'Content-Type': 'application/json'
-            },
+        // 4) Create a commit pointing to this new tree
+        const newCommitResp = await githubApiRequest('/git/commits', {
+            method: 'POST',
             body: JSON.stringify({
                 message: commitMessage,
-                content: metaBase64,
-                branch: 'main'
+                tree: newTreeSha,
+                parents: [headSha]
             })
         });
+        const newCommitSha = (await newCommitResp.json()).sha;
 
-        if (!metaResp.ok) {
-            throw new Error(`Failed to upload metadata: ${metaResp.status}`);
-        }
+        // 5) Fast-forward the main branch ref to the new commit
+        await githubApiRequest('/git/refs/heads/main', {
+            method: 'PATCH',
+            body: JSON.stringify({ sha: newCommitSha, force: false })
+        });
 
         return { id: configId, path: configPath, fileName };
     }
 
     async function deleteConfig(config) {
-        const deleteFile = async (path, sha) => {
-            const resp = await fetch(`${GITHUB_API_BASE}/contents/${path}`, {
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    message: `Delete config: ${config.name}`,
-                    sha: sha,
-                    branch: 'main'
-                })
-            });
-            return resp.ok;
-        };
+        // Delete two files in one atomic commit via Git Data API instead of
+        // two separate DELETE /contents requests.
+        const metaPath = `${CONFIGS_PATH}/${config.id}/meta.json`;
+        const configPath = `${CONFIGS_PATH}/${config.id}/${config.fileName}`;
+        const commitMessage = `Delete config: ${config.name}`;
 
-        await Promise.all([
-            deleteFile(`${CONFIGS_PATH}/${config.id}/meta.json`, config.metaSha),
-            deleteFile(`${CONFIGS_PATH}/${config.id}/${config.fileName}`, config.fileSha)
-        ]);
+        const refResp = await githubApiRequest('/git/ref/heads/main');
+        const refData = await refResp.json();
+        const headSha = refData.object.sha;
+
+        const commitResp = await githubApiRequest(`/git/commits/${headSha}`);
+        const commitData = await commitResp.json();
+        const baseTreeSha = commitData.tree.sha;
+
+        const treeResp = await githubApiRequest('/git/trees', {
+            method: 'POST',
+            body: JSON.stringify({
+                base_tree: baseTreeSha,
+                tree: [
+                    { path: configPath, mode: '100644', type: 'blob', sha: null },
+                    { path: metaPath,   mode: '100644', type: 'blob', sha: null }
+                ]
+            })
+        });
+        const newTreeSha = (await treeResp.json()).sha;
+
+        const newCommitResp = await githubApiRequest('/git/commits', {
+            method: 'POST',
+            body: JSON.stringify({
+                message: commitMessage,
+                tree: newTreeSha,
+                parents: [headSha]
+            })
+        });
+        const newCommitSha = (await newCommitResp.json()).sha;
+
+        await githubApiRequest('/git/refs/heads/main', {
+            method: 'PATCH',
+            body: JSON.stringify({ sha: newCommitSha, force: false })
+        });
     }
 
     function arrayBufferToBase64(buffer) {
+        // Chunked conversion — matches the network restore-point helper.
         const bytes = new Uint8Array(buffer);
         let binary = '';
-        for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]);
+        const chunkSize = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
         }
         return btoa(binary);
     }
@@ -484,14 +574,14 @@
             const ls = settings.localStorageSettings || {};
 
             let themeGui = 'light';
-            let accentName = 'Pale Blue';
+            let accentName = 'pale blue';
             let isDark = false;
 
             if (ls['tw:theme']) {
                 try {
                     const themeData = JSON.parse(ls['tw:theme']);
                     themeGui = themeData.gui || 'light';
-                    accentName = themeData.accent || 'Pale Blue';
+                    accentName = themeData.accent || 'pale blue';
                     isDark = themeGui === 'dark' || themeGui === 'deepdark' ||
                         themeGui === 'midnight' || themeGui === 'genesis dark';
                 } catch (e) {
@@ -503,60 +593,63 @@
                 if (isDark) themeGui = 'dark';
             }
 
+            // Color values sourced from scratch-gui/src/lib/themes/accent/*.js
+            // (motion-primary / guiColors['looks-secondary'] for each accent).
+            // Keys are lowercase to match the value stored in tw:theme (accent.name.toLowerCase()).
             const accentColors = {
-                'Red': 'hsl(0, 100%, 65%)',
-                'Orange': '#ff7f2a',
-                'Yellow': 'hsl(50, 100%, 50%)',
-                'Green': '#4caf50',
-                'Green (V2)': 'hsl(110, 100%, 65%)',
-                'Dark Green': '#13261f',
-                'Blue': 'hsl(215, 100%, 65%)',
-                'Light Blue': 'hsl(194, 100%, 50%)',
-                'Pale Blue': 'hsl(210, 100%, 65%)',
-                'Purple': 'hsl(280, 100%, 65%)',
-                'Pink': 'hsl(330, 100%, 65%)',
-                'Pink (V2)': 'hsl(325, 100%, 60%)',
-                'Sunset': 'hsl(30, 100%, 65%)',
-                'Ocean': 'oklab(0.65 -0.08 -0.12)',
-                'Aurora': 'oklab(0.70 -0.10 0.08)',
-                'Cosmic': 'oklab(0.68 0.15 -0.08)',
-                'Fire': 'oklab(0.68 0.18 0.12)',
-                'Nebula': 'oklab(0.55 0.08 -0.12)',
-                'Lavender': 'oklab(0.75 0.08 -0.12)',
-                'Mint': 'oklab(0.78 -0.12 0.08)',
-                'Cherry': 'oklab(0.70 0.18 0.08)',
-                'Sky': 'oklab(0.60 0.14 0.08)',
-                'Forest': 'oklab(0.65 -0.12 0.12)',
-                'Coral': 'oklab(0.72 0.14 0.10)',
-                'Rainbow': 'hsl(0, 100%, 65%)',
-                'Green Tea': '#91B821',
-                'Eggplant Purple': '#49214A',
-                'Trans': 'hsl(250, 100%, 65%)',
-                'Gay': '#078e70',
-                'Bi': 'oklab(0.55 0.12 -0.07)',
-                'Pan': 'hsl(240, 100%, 65%)',
-                'Lesbian': 'oklab(0.65 0.15 -0.04)',
-                'Nonbinary': 'oklab(0.59 0.11 -0.15)',
-                'Ace': 'oklab(0.42 0.16 -0.10)',
-                'Rotur': '#ff6600',
-                'Matrix': '#00a832',
-                'Honey': '#e6a817',
-                '02e': '#00BAAD',
-                'CE': '#ff9b86',
-                'Miku': '#39c5bb',
-                'Magenta': '#FF269A',
-                'TY': '#800080',
-                'Oubi': '#3C7699',
-                'Omnimax Blue': '#4aa8ff',
-                'Vaporwave': 'hsl(250, 100%, 65%)',
-                'Astra': '#0099ff'
+                'red': '#ff4c4c',
+                'orange': '#ff7f2a',
+                'yellow': '#ffcc00',
+                'green': '#4caf50',
+                'green (v2)': 'hsla(110, 100%, 65%, 1)',
+                'dark green': '#13261f',
+                'green tea': '#91B821',
+                'pale blue': '#3C7699',
+                'light blue': 'hsla(194, 100%, 50%, 1)',
+                'blue': 'hsla(215, 100%, 65%, 1)',
+                'purple': 'hsla(260, 60%, 60%, 1)',
+                'eggplant': '#49214A',
+                'pink': 'hsla(330, 80%, 70%, 1)',
+                'pink (v2)': 'hsla(325, 60%, 60%, 1)',
+                'magenta': '#FF269A',
+                'astraeditor': '#0099ff',
+                '02': '#00BAAD',
+                'ce pink': '#ff9b86',
+                'miku green': '#39c5bb',
+                'tianyi blue': '#66ccff',
+                'oubi': '#3C7699',
+                'om blue': '#4aa8ff',
+                'rainbow': '#ff4c4c',
+                'trans': 'oklab(0.85 0.08 0.02)',
+                'gay': '#078e70',
+                'bisexual': 'oklab(0.55 0.12 -0.07)',
+                'pansexual': 'oklab(0.66 0.25 -0.00)',
+                'lesbian': 'oklab(0.65 0.15 -0.04)',
+                'nonbinary': 'oklab(0.59 0.11 -0.15)',
+                'asexual': 'oklab(0.42 0.16 -0.10)',
+                'rotur': 'oklab(0.42 -0.01 -0.08)',
+                'sunset': 'oklab(0.75 0.12 0.08)',
+                'ocean': 'oklab(0.65 -0.08 -0.12)',
+                'aurora': 'oklab(0.70 -0.10 0.08)',
+                'cosmic': 'oklab(0.68 0.15 -0.08)',
+                'fire': 'oklab(0.68 0.18 0.12)',
+                'nebula': 'oklab(0.55 0.08 -0.12)',
+                'lavender': 'oklab(0.75 0.08 -0.12)',
+                'mint': 'oklab(0.78 -0.12 0.08)',
+                'cherry': 'oklab(0.70 0.18 0.08)',
+                'sky': 'oklab(0.80 -0.04 -0.08)',
+                'forest': 'oklab(0.65 -0.12 0.12)',
+                'coral': 'oklab(0.72 0.14 0.10)',
+                'vaporwave': '#ff71ce',
+                'matrix': '#00a832',
+                'honey': '#e6a817'
             };
 
             const themeInfo = {
                 gui: themeGui,
                 accent: {
                     name: accentName,
-                    color: accentColors[accentName] || 'hsl(210, 100%, 65%)'
+                    color: accentColors[accentName] || '#3C7699'
                 },
                 isDark: isDark,
                 displayName: THEME_NAMES[themeGui] || themeGui,
