@@ -45,18 +45,32 @@
 
     // ===== GitHub API =====
 
-    // Centralized GitHub API helper — mirrors the pattern used in
-    // scratch-gui/src/lib/api/restore-points.js (网络还原点).
-    // Tokens, headers, and error-surfacing stay consistent across all calls.
-    async function githubApiRequest(path, options = {}) {
+    // Shared base fetch + error handling for the GitHub REST API.
+    // `auth` controls the Authorization header:
+    //   - true   → attach the OAuth token. Required for writes (POST/PATCH/DELETE)
+    //              and also helps raise the rate limit on authenticated reads.
+    //              WARNING: triggers a CORS preflight from cross-origin iframes,
+    //              which often fails with "NetworkError when attempting to fetch resource".
+    //   - false  → NO Authorization header. This makes the request "simple"
+    //              (no CORS preflight) so it works from the embedded plaza iframe.
+    //              Fine for all GETs because remixwarp/rwc is a public repo.
+    async function githubApiRequest(path, options = {}, auth = false) {
+        const headers = {
+            'Accept': 'application/vnd.github.v3+json',
+            ...options.headers
+        };
+        if (auth) {
+            headers['Authorization'] = `token ${GITHUB_TOKEN}`;
+            // Content-Type only needed when we actually send a JSON body on
+            // auth'd writes; it's another header that can trigger preflight
+            // on reads, so only add when writing (i.e. when body exists).
+            if (options && options.body) {
+                headers['Content-Type'] = 'application/json';
+            }
+        }
         const res = await fetch(`${GITHUB_API_BASE}${path}`, {
             ...options,
-            headers: {
-                'Authorization': `token ${GITHUB_TOKEN}`,
-                'Accept': 'application/vnd.github.v3+json',
-                'Content-Type': 'application/json',
-                ...options.headers
-            }
+            headers: headers
         });
         if (!res.ok) {
             let errorBody = '';
@@ -66,9 +80,16 @@
         return res;
     }
 
+    // Anonymous (no-token) JSON fetcher for public reads. Used as the
+    // direct-fetch fallback inside the plaza iframe: sending no Authorization
+    // header keeps this a CORS "simple request" (no preflight), and since
+    // remixwarp/rwc is public this access pattern works fine for listing.
     async function fetchJSON(url, options) {
-        // Legacy helper — kept for the public-tree fetch that doesn't need JSON body.
-        const res = await githubApiRequest(url.replace(GITHUB_API_BASE, ''), options);
+        const res = await githubApiRequest(
+            url.replace(GITHUB_API_BASE, ''),
+            options,
+            false  // anon — keep simple CORS
+        );
         return res.json();
     }
 
@@ -216,12 +237,14 @@
         }, null, 2);
         const metaBase64 = stringToBase64(metaContent);
 
-        // 1) Resolve the current HEAD commit SHA for `main`
-        const refResp = await githubApiRequest('/git/ref/heads/main');
+        // All write operations require the auth token (so force auth=true).
+        // Step 1 reads (ref + commit) could be anonymous but using auth here
+        // keeps compatibility with private fork repos users may use.
+        const refResp = await githubApiRequest('/git/ref/heads/main', {}, true);
         const refData = await refResp.json();
         const headSha = refData.object.sha;
 
-        const commitResp = await githubApiRequest(`/git/commits/${headSha}`);
+        const commitResp = await githubApiRequest(`/git/commits/${headSha}`, {}, true);
         const commitData = await commitResp.json();
         const baseTreeSha = commitData.tree.sha;
 
@@ -230,11 +253,11 @@
             githubApiRequest('/git/blobs', {
                 method: 'POST',
                 body: JSON.stringify({ content: fileBase64, encoding: 'base64' })
-            }),
+            }, true),
             githubApiRequest('/git/blobs', {
                 method: 'POST',
                 body: JSON.stringify({ content: metaBase64, encoding: 'base64' })
-            })
+            }, true)
         ]);
         const configBlobSha = (await configBlobResp.json()).sha;
         const metaBlobSha = (await metaBlobResp.json()).sha;
@@ -250,7 +273,7 @@
                     { path: metaPath,   mode: '100644', type: 'blob', sha: metaBlobSha }
                 ]
             })
-        });
+        }, true);
         const newTreeSha = (await treeResp.json()).sha;
 
         // 4) Create a commit pointing to this new tree
@@ -261,30 +284,30 @@
                 tree: newTreeSha,
                 parents: [headSha]
             })
-        });
+        }, true);
         const newCommitSha = (await newCommitResp.json()).sha;
 
         // 5) Fast-forward the main branch ref to the new commit
         await githubApiRequest('/git/refs/heads/main', {
             method: 'PATCH',
             body: JSON.stringify({ sha: newCommitSha, force: false })
-        });
+        }, true);
 
         return { id: configId, path: configPath, fileName };
     }
 
     async function deleteConfig(config) {
         // Delete two files in one atomic commit via Git Data API instead of
-        // two separate DELETE /contents requests.
+        // two separate DELETE /contents requests. All calls are authed.
         const metaPath = `${CONFIGS_PATH}/${config.id}/meta.json`;
         const configPath = `${CONFIGS_PATH}/${config.id}/${config.fileName}`;
         const commitMessage = `Delete config: ${config.name}`;
 
-        const refResp = await githubApiRequest('/git/ref/heads/main');
+        const refResp = await githubApiRequest('/git/ref/heads/main', {}, true);
         const refData = await refResp.json();
         const headSha = refData.object.sha;
 
-        const commitResp = await githubApiRequest(`/git/commits/${headSha}`);
+        const commitResp = await githubApiRequest(`/git/commits/${headSha}`, {}, true);
         const commitData = await commitResp.json();
         const baseTreeSha = commitData.tree.sha;
 
@@ -297,7 +320,7 @@
                     { path: metaPath,   mode: '100644', type: 'blob', sha: null }
                 ]
             })
-        });
+        }, true);
         const newTreeSha = (await treeResp.json()).sha;
 
         const newCommitResp = await githubApiRequest('/git/commits', {
@@ -307,13 +330,13 @@
                 tree: newTreeSha,
                 parents: [headSha]
             })
-        });
+        }, true);
         const newCommitSha = (await newCommitResp.json()).sha;
 
         await githubApiRequest('/git/refs/heads/main', {
             method: 'PATCH',
             body: JSON.stringify({ sha: newCommitSha, force: false })
-        });
+        }, true);
     }
 
     function arrayBufferToBase64(buffer) {
@@ -909,7 +932,23 @@
             showToast('已刷新', 'success');
         });
 
-        loadConfigs();
+        // When the plaza is loaded inside the editor iframe, the bridge
+        // handshake (`plazaReady` → `editorConnected`) takes a tick or two.
+        // If we fire `loadConfigs()` immediately, canForward() still
+        // returns false and we fall back to direct fetches, which almost
+        // always surface as "NetworkError" inside iframes. Wait for the
+        // handshake here so the forward-GitHub-API path is used on first
+        // load. For a standalone plaza tab (no parent / same document) we
+        // skip the wait entirely because direct fetches work fine there.
+        const isEmbedded = window.parent && window.parent !== window;
+        const bridge = window.RWCEditorBridge;
+        if (isEmbedded && bridge && bridge.waitForEditorConnection) {
+            bridge.waitForEditorConnection().then(() => {
+                loadConfigs();
+            });
+        } else {
+            loadConfigs();
+        }
     }
 
     if (document.readyState === 'loading') {

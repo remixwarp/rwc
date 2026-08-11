@@ -10,11 +10,31 @@
         editorUrl: null,    // set by editorConnected payload, e.g. http://localhost:8601/editor.html
         _forwardReqCounter: 0,
         _forwardPending: new Map(), // requestId -> {resolve, reject, timeout}
+        _connectResolve: null,
+        _connectPromise: null,
 
         init() {
+            // Resolved the first time `editorConnected` arrives. Use this to
+            // delay GitHub API calls in iframe scenarios so they can be
+            // forwarded through the editor tab (which doesn't suffer from
+            // the iframe CORS/fetch issues).
+            this._connectPromise = new Promise(resolve => {
+                this._connectResolve = resolve;
+                // Safety net: if no editor ever replies (e.g. the plaza was
+                // opened as a standalone tab inside a same-origin iframe of
+                // some unrelated page) we still resolve after a short wait
+                // so callers don't hang forever.
+                setTimeout(() => resolve(false), 5000);
+            });
             window.addEventListener('message', (e) => this._onMessage(e));
             this._announceReady();
             console.log('[RWC] Editor bridge initialized');
+        },
+
+        // Promise that resolves with `true` once the editor handshake has
+        // completed and forward APIs are available, or `false` on timeout.
+        waitForEditorConnection() {
+            return this._connectPromise;
         },
 
         _announceReady() {
@@ -57,8 +77,16 @@
                     if (data && data.editorUrl) {
                         this.editorUrl = data.editorUrl;
                     } else if (document.referrer) {
-                        const ref = new URL(document.referrer);
-                        this.editorUrl = ref.origin + ref.pathname;
+                        try {
+                            const ref = new URL(document.referrer);
+                            this.editorUrl = ref.origin + ref.pathname;
+                        } catch (_) { /* ignore */ }
+                    }
+                    // Unblock any caller waiting on waitForEditorConnection().
+                    if (this._connectResolve) {
+                        const fn = this._connectResolve;
+                        this._connectResolve = null;
+                        fn(true);
                     }
                     this._updateStatusUI();
                     console.log('[RWC] Editor connected', this.editorUrl ? 'at ' + this.editorUrl : '');
