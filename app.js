@@ -832,6 +832,69 @@
         document.getElementById('confirmUpload').disabled = !(hasName && hasAuthor && hasFile);
     }
 
+    // ===== 人机验证 =====
+    function verifyCaptcha() {
+        return new Promise((resolve, reject) => {
+            const captchaModal = document.getElementById('captchaModal');
+            const container = document.getElementById('captchaContainer');
+            const capWidget = document.createElement('cap-widget');
+            capWidget.setAttribute('data-cap-api-endpoint', 'https://captcha.gurl.eu.org/api/');
+            capWidget.setAttribute('id', 'cap-widget');
+            container.innerHTML = '';
+            container.appendChild(capWidget);
+
+            let solved = false;
+
+            function onSolve(e) {
+                if (solved) return;
+                solved = true;
+                const token = e.detail.token;
+                fetch('https://captcha.gurl.eu.org/api/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: token, keepToken: false })
+                })
+                .then(function (res) { return res.json(); })
+                .then(function (result) {
+                    if (result.success) {
+                        captchaModal.style.display = 'none';
+                        container.innerHTML = '';
+                        resolve();
+                    } else {
+                        solved = false;
+                        showToast('验证失败，请重试', 'error');
+                        resetCaptcha();
+                    }
+                })
+                .catch(function () {
+                    solved = false;
+                    showToast('验证服务异常，请重试', 'error');
+                    resetCaptcha();
+                });
+            }
+
+            function resetCaptcha() {
+                container.innerHTML = '';
+                const newWidget = document.createElement('cap-widget');
+                newWidget.setAttribute('data-cap-api-endpoint', 'https://captcha.gurl.eu.org/api/');
+                newWidget.setAttribute('id', 'cap-widget');
+                container.appendChild(newWidget);
+            }
+
+            capWidget.addEventListener('solve', onSolve);
+            captchaModal.style.display = 'flex';
+
+            captchaModal.addEventListener('click', function (e) {
+                if (e.target === captchaModal.querySelector('.modal-overlay') || e.target === captchaModal) {
+                    captchaModal.style.display = 'none';
+                    container.innerHTML = '';
+                    capWidget.removeEventListener('solve', onSolve);
+                    reject(new Error('用户取消验证'));
+                }
+            });
+        });
+    }
+
     async function doUpload() {
         const name = document.getElementById('configName').value.trim();
         const author = document.getElementById('configAuthor').value.trim();
@@ -855,6 +918,14 @@
             showToast('请先选择文件或从编辑器导入', 'error');
             return;
         }
+
+        // 人机验证
+        try {
+            await verifyCaptcha();
+        } catch (e) {
+            return; // 用户取消验证
+        }
+
         const bridge = window.RWCEditorBridge;
         const meta = {
             name: name,

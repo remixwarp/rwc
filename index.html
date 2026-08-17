@@ -235,6 +235,21 @@
         </div>
     </div>
 
+    <!-- 人机验证弹窗 -->
+    <div id="captchaModal" class="modal" style="display:none;">
+        <div class="modal-overlay"></div>
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h2>人机验证</h2>
+            </div>
+            <div class="modal-body" style="text-align:center;padding:30px;">
+                <p style="margin-bottom:20px;color:var(--text-muted);">请完成验证后继续上传</p>
+                <div id="captchaContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://captcha.gurl.eu.org/cap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="editor-bridge.js"></script>
     <script src="app.js"></script>
