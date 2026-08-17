@@ -5,7 +5,8 @@
     const GITHUB_REPO_OWNER = 'remixwarp';
     const GITHUB_REPO_NAME = 'rwc';
     const GITHUB_API_BASE = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}`;
-    const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/remixwarp/rwc/main';
+    const GITHUB_RAW_BASE = 'https://rw-c.pages.dev';
+const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
     const EXTENSIONS_PATH = 'extensions';
     const CHANNEL = 'rwc-experiment-plaza';
 
