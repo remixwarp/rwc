@@ -1,0 +1,12 @@
+{
+  "name": "云列表JSON",
+  "author": "笑小朗",
+  "description": "借用云变量，实现云列表！",
+  "extensionId": "ext_mswu6z6a_wg2e",
+  "extensionFile": "extension.js",
+  "iconFile": "icon.png",
+  "docsURI": "https://www.bilibili.com/video/BV1FDUTBGE2H",
+  "sampleProject": "",
+  "reviewStatus": "unreviewed",
+  "uploadDate": "2026-08-17T06:12:27.166Z"
+}
