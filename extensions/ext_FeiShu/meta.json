@@ -1,0 +1,12 @@
+{
+  "name": "飞书",
+  "author": "Maxkore",
+  "description": "✨更好的WebHook",
+  "extensionId": "ext_FeiShu",
+  "extensionFile": "extension.js",
+    "iconFile": "FlyBook.png",
+  "docsURI": "https://learn.ccw.site/article/1611ce72-5c54-48f9-865d-7f32d8206ab5",
+  "sampleProject": "",
+  "reviewStatus": "approved",
+  "uploadDate": "2026-08-17T06:12:27.176Z"
+}
