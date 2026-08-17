@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>扩展实验广场</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 顶部操作栏 -->
+        <div class="toolbar">
+            <div class="search-box">
+                <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input type="text" id="searchInput" placeholder="搜索扩展实验广场中的扩展..." />
+            </div>
+            <div class="filter-bar">
+                <button class="filter-btn active" data-filter="all">全部</button>
+                <button class="filter-btn" data-filter="unreviewed">未审核</button>
+                <button class="filter-btn" data-filter="approved">已审核</button>
+            </div>
+        </div>
+
+        <!-- 扩展网格 -->
+        <div id="extensionGrid" class="extension-grid"></div>
+
+        <!-- 空状态 -->
+        <div id="emptyState" class="empty-state" style="display:none;">
+            <div class="empty-state-content">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                </svg>
+                <p>暂无扩展</p>
+            </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div id="loadingState" class="loading-state" style="display:none;">
+            <div class="spinner"></div>
+            <p>正在加载扩展列表...</p>
+        </div>
+    </div>
+
+    <!-- 上传按钮 -->
+    <button id="uploadBtn" class="upload-fab" title="上传扩展">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+        </svg>
+    </button>
+
+    <!-- 上传弹窗 -->
+    <div id="uploadModal" class="modal-overlay" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>上传扩展</h2>
+                <button class="modal-close" onclick="closeUploadModal()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>扩展名称 *</label>
+                    <input type="text" id="extName" placeholder="请输入扩展名称" />
+                </div>
+                <div class="form-group">
+                    <label>作者名称 *</label>
+                    <input type="text" id="extAuthor" placeholder="请输入作者名称" />
+                </div>
+                <div class="form-group">
+                    <label>扩展描述 *</label>
+                    <textarea id="extDescription" placeholder="请输入扩展描述" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>扩展JS文件 *</label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="extJsFile" accept=".js" />
+                        <div class="file-input-label">选择 .js 文件</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>扩展封面图片 *</label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="extIconFile" accept=".png,.jpg,.jpeg,.svg,.webp" />
+                        <div class="file-input-label">选择图片文件</div>
+                    </div>
+                    <div id="iconPreview" class="icon-preview" style="display:none;">
+                        <img id="iconPreviewImg" alt="封面预览" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>文档链接</label>
+                    <input type="url" id="extDocs" placeholder="https://..." />
+                </div>
+                <div class="form-group">
+                    <label>示例作品链接</label>
+                    <input type="url" id="extSample" placeholder="https://..." />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeUploadModal()">取消</button>
+                <button class="btn btn-primary" id="uploadSubmitBtn" onclick="submitUpload()">上传扩展</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 安全提示弹窗 -->
+    <div id="warningModal" class="modal-overlay" style="display:none;">
+        <div class="modal modal-warning">
+            <div class="modal-header warning-header">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f44336" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <h2>安全警告</h2>
+            </div>
+            <div class="modal-body warning-body">
+                <p>该扩展<strong>未经过 RemixWarp 官方团队审核</strong>。</p>
+                <p>使用本扩展造成的一切后果由使用者自负。</p>
+                <p class="warning-hint">请确认您信任该扩展的来源，并了解其功能后再决定是否加载。</p>
+            </div>
+            <div class="modal-footer warning-footer">
+                <button class="btn btn-secondary" id="warningCancelBtn">取消</button>
+                <button class="btn btn-danger" id="warningConfirmBtn">确认加载</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载成功/失败提示 -->
+    <div id="toast" class="toast" style="display:none;"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
