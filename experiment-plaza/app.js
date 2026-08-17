@@ -146,6 +146,15 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
         return btoa(binary);
     }
 
+    function base64ToString(base64) {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return new TextDecoder('utf-8').decode(bytes);
+    }
+
     function resolveRawUrl(path) {
         return `${GITHUB_RAW_BASE}/${path}`;
     }
@@ -187,7 +196,7 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
 
                 try {
                     const meta = await githubFetch(`/contents/${metaFile.path}`);
-                    const metaContent = JSON.parse(atob(meta.content));
+                    const metaContent = JSON.parse(base64ToString(meta.content));
                     extList.push({
                         id: extId,
                         name: metaContent.name || extId,
