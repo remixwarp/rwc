@@ -15,17 +15,12 @@
     const I18N = {
         zh: {
             'title': '素材广场',
-            'search.placeholder': '搜索素材名称、作者、类型...',
+            'search.placeholder': '搜索素材名称、作者...',
             'loading.text': '正在加载素材列表...',
             'empty.title': '暂无素材',
             'empty.desc': '点击右上角的 + 按钮添加你的第一个素材',
             'empty.search': '没有匹配的素材',
             'add.btn': '添加素材',
-            'filter.all': '全部',
-            'filter.script': '积木',
-            'filter.sprite': '角色',
-            'filter.costume': '造型',
-            'filter.sound': '声音',
             'upload.title': '上传素材',
             'upload.author': '作者名称 *',
             'upload.author.ph': '输入作者名称',
@@ -35,13 +30,11 @@
             'upload.desc.ph': '输入素材描述（选填）',
             'upload.select': '选择素材文件 *',
             'upload.fileHint': '点击选择文件',
-            'upload.fileTypes': '支持 .sprite3(角色) .svg/.png(造型) .wav/.mp3(音频)',
+            'upload.fileTypes': '支持 .sprite3(角色)',
             'upload.cancel': '取消',
             'upload.submit': '上传素材',
             'upload.uploading': '正在上传...',
             'file.type.sprite': '角色文件',
-            'file.type.costume': '造型文件',
-            'file.type.sound': '音频文件',
             'file.select.error': '请选择素材文件',
             'toast.upload.success': '素材上传成功！',
             'toast.upload.fail': '上传失败: {msg}',
@@ -54,10 +47,6 @@
             'toast.apply.fail': '素材应用失败',
             'lang.switch': 'EN',
             'unknown.author': '未知作者',
-            'type.script': '积木',
-            'type.sprite': '角色',
-            'type.costume': '造型',
-            'type.sound': '声音',
             'capture.hint': '请完成验证后继续上传',
             'remove': '移除',
             'editor.hint': '上传素材请转到独立页面操作',
@@ -67,31 +56,16 @@
             'upload.coverOptional': '(选填)',
             'upload.coverHint': '选择封面图片（可选）',
             'captcha.title': '人机验证',
-            'theme.toggle': '切换深浅色',
-            'target.select.title': '选择应用目标',
-            'target.select.hint': '请选择要将素材应用到哪个角色或背景：',
-            'target.select.confirm': '确定应用',
-            'target.select.cancel': '取消',
-            'target.select.loading': '正在加载目标列表...',
-            'target.select.empty': '没有可用的角色或背景',
-            'target.select.stage': '背景',
-            'target.select.sprite': '角色',
-            'target.select.costumeCount': '{n} 个造型',
-            'target.select.soundCount': '{n} 个声音'
+            'theme.toggle': '切换深浅色'
         },
         en: {
             'title': 'Material Plaza',
-            'search.placeholder': 'Search materials by name, author, type...',
+            'search.placeholder': 'Search materials by name, author...',
             'loading.text': 'Loading material list...',
             'empty.title': 'No materials yet',
             'empty.desc': 'Click the + button to add your first material',
             'empty.search': 'No matching materials',
             'add.btn': 'Add Material',
-            'filter.all': 'All',
-            'filter.script': 'Blocks',
-            'filter.sprite': 'Sprites',
-            'filter.costume': 'Costumes',
-            'filter.sound': 'Sounds',
             'upload.title': 'Upload Material',
             'upload.author': 'Author Name *',
             'upload.author.ph': 'Enter author name',
@@ -101,13 +75,11 @@
             'upload.desc.ph': 'Enter description (optional)',
             'upload.select': 'Select Material File *',
             'upload.fileHint': 'Click to select a file',
-            'upload.fileTypes': 'Supports .sprite3(sprite) .svg/.png(costume) .wav/.mp3(audio)',
+            'upload.fileTypes': 'Supports .sprite3(sprite)',
             'upload.cancel': 'Cancel',
             'upload.submit': 'Upload Material',
             'upload.uploading': 'Uploading...',
             'file.type.sprite': 'Sprite File',
-            'file.type.costume': 'Costume File',
-            'file.type.sound': 'Audio File',
             'file.select.error': 'Please select a material file',
             'toast.upload.success': 'Material uploaded successfully!',
             'toast.upload.fail': 'Upload failed: {msg}',
@@ -120,10 +92,6 @@
             'toast.apply.fail': 'Failed to apply material',
             'lang.switch': '中',
             'unknown.author': 'Unknown Author',
-            'type.script': 'Blocks',
-            'type.sprite': 'Sprite',
-            'type.costume': 'Costume',
-            'type.sound': 'Sound',
             'capture.hint': 'Please complete the captcha to continue',
             'remove': 'Remove',
             'editor.hint': 'Please open in standalone page to upload materials',
@@ -133,17 +101,7 @@
             'upload.coverOptional': '(optional)',
             'upload.coverHint': 'Select cover image (optional)',
             'captcha.title': 'Verification',
-            'theme.toggle': 'Toggle dark/light mode',
-            'target.select.title': 'Select Target',
-            'target.select.hint': 'Select which sprite or background to apply the material to:',
-            'target.select.confirm': 'Apply',
-            'target.select.cancel': 'Cancel',
-            'target.select.loading': 'Loading target list...',
-            'target.select.empty': 'No available sprites or backgrounds',
-            'target.select.stage': 'Stage',
-            'target.select.sprite': 'Sprite',
-            'target.select.costumeCount': '{n} costumes',
-            'target.select.soundCount': '{n} sounds'
+            'theme.toggle': 'Toggle dark/light mode'
         }
     };
 
@@ -183,15 +141,6 @@
         if (searchInput) searchInput.placeholder = __('search.placeholder');
         const addBtnText = document.getElementById('addBtnText');
         if (addBtnText) addBtnText.textContent = __('add.btn');
-        // Filter buttons
-        document.querySelectorAll('.filter-btn').forEach(function (btn) {
-            const filter = btn.dataset.filter;
-            if (filter === 'all') btn.textContent = __('filter.all');
-            else if (filter === 'script') btn.textContent = __('filter.script');
-            else if (filter === 'sprite') btn.textContent = __('filter.sprite');
-            else if (filter === 'costume') btn.textContent = __('filter.costume');
-            else if (filter === 'sound') btn.textContent = __('filter.sound');
-        });
         // Loading text
         const loadingP = document.querySelector('#loadingState p');
         if (loadingP) loadingP.textContent = __('loading.text');
@@ -273,7 +222,6 @@
 
     // ===== 状态 =====
     let materials = [];
-    let currentFilter = 'all';
     let searchQuery = '';
     let selectedFileData = null; // 选择的文件数据
     let selectedCoverData = null; // 选择的封面图数据（base64 data URL）
@@ -601,9 +549,6 @@
         emptyState.style.display = 'none';
 
         let filtered = materials;
-        if (currentFilter !== 'all') {
-            filtered = filtered.filter(function (m) { return m.type === currentFilter; });
-        }
         if (searchQuery.trim()) {
             const q = searchQuery.trim().toLowerCase();
             filtered = filtered.filter(function (m) {
@@ -642,53 +587,17 @@
         card.className = 'material-card';
         card.draggable = true;
 
-        // 类型标签颜色
-        var typeColors = {
-            script: '#4caf50',
-            sprite: '#2196f3',
-            costume: '#ff9800',
-            sound: '#9c27b0'
-        };
-        var typeLabels = {
-            script: __('type.script'),
-            sprite: __('type.sprite'),
-            costume: __('type.costume'),
-            sound: __('type.sound')
-        };
-
         // 构建缩略图 HTML
         var thumbContent = '';
-        if (material.thumbnail && material.type !== 'sprite' && material.type !== 'costume') {
-            // sprite/costume 始终使用默认SVG图标（不解析造型，统一显示）
-            if (material.type === 'sound') {
-                // 音频缩略图：如果是 data URL 则显示为图片，否则显示默认 SVG 图标
-                if (material.thumbnail.startsWith('data:')) {
-                    thumbContent = '<img src="' + escapeHtml(material.thumbnail) + '" alt="' + escapeHtml(material.title || material.name) + '" loading="lazy" />';
-                } else {
-                    thumbContent = '<div class="material-card-thumb-icon sound-icon">' +
-                        material.thumbnail +
-                        '</div>';
-                }
-            } else {
-                thumbContent = '<img src="' + escapeHtml(material.thumbnail) + '" alt="' + escapeHtml(material.title || material.name) + '" loading="lazy" />';
-            }
+        if (material.thumbnail) {
+            thumbContent = '<img src="' + escapeHtml(material.thumbnail) + '" alt="' + escapeHtml(material.title || material.name) + '" loading="lazy" />';
         } else {
-            // 无缩略图或 sprite/costume 类型时显示默认图标
-            var svgHtml = getDefaultTypeSvg(material.type);
-            if (svgHtml) {
-                thumbContent = '<div class="material-card-thumb-icon ' + material.type + '-icon">' + svgHtml + '</div>';
-            } else {
-                thumbContent = '<div class="material-card-thumb-placeholder" style="font-size:32px;color:#ccc">' +
-                    getTypeIcon(material.type) +
-                    '</div>';
-            }
+            // 默认显示角色图标
+            thumbContent = '<div class="material-card-thumb-icon sprite-icon">' + getSpriteLibraryIconSvg() + '</div>';
         }
 
         card.innerHTML =
             '<div class="material-card-thumb">' +
-                '<div class="material-card-type-badge ' + material.type + '" style="background:' + (typeColors[material.type] || '#999') + '">' +
-                    (typeLabels[material.type] || material.type) +
-                '</div>' +
                 thumbContent +
             '</div>' +
             '<div class="material-card-body">' +
@@ -698,7 +607,6 @@
                 (material.description ? '<div class="material-card-desc" title="' + escapeHtml(material.description) + '">' + escapeHtml(material.description) + '</div>' : '') +
                 '<div class="material-card-meta">' +
                     '<span class="material-card-author">' + escapeHtml(material.author || __('unknown.author')) + '</span>' +
-                    '<span class="material-card-type">' + (typeLabels[material.type] || material.type) + '</span>' +
                 '</div>' +
             '</div>';
 
@@ -718,25 +626,10 @@
 
         // 点击加载素材详情
         card.addEventListener('click', function () {
-            // 声音和造型类型需要先选择应用目标
-            if (material.type === 'sound' || material.type === 'costume') {
-                loadAndApplyMaterial(material, true);
-            } else {
-                loadAndApplyMaterial(material);
-            }
+            loadAndApplyMaterial(material);
         });
 
         return card;
-    }
-
-    function getTypeIcon(type) {
-        switch (type) {
-            case 'script': return '🧩';
-            case 'sprite': return '🦸';
-            case 'costume': return '👗';
-            case 'sound': return '🎵';
-            default: return '📦';
-        }
     }
 
     function escapeHtml(str) {
@@ -746,17 +639,12 @@
     }
 
     // 加载并应用素材到编辑器
-    async function loadAndApplyMaterial(material, showTargetSelect) {
+    async function loadAndApplyMaterial(material) {
         try {
             showToast(__('toast.apply'), 'info');
             const fullData = await getMaterialBody(material.id);
             if (!fullData) {
                 showToast(__('toast.apply.fail'), 'error');
-                return;
-            }
-            // 声音和造型需要选择目标
-            if (showTargetSelect) {
-                openTargetSelectModal(material, fullData);
                 return;
             }
             // 通过桥接发送到编辑器
@@ -798,141 +686,10 @@
         uploadModal.style.display = 'none';
     }
 
-    // ===== 目标选择弹窗 =====
-    var pendingTargetMaterial = null;
-
-    function openTargetSelectModal(material, materialData) {
-        pendingTargetMaterial = materialData || material;
-        var modal = document.getElementById('targetSelectModal');
-        var container = document.getElementById('targetListContainer');
-        var confirmBtn = document.getElementById('targetSelectConfirmBtn');
-        var title = document.getElementById('targetSelectTitle');
-        var hint = document.getElementById('targetSelectHint');
-
-        title.textContent = __('target.select.title');
-        hint.textContent = __('target.select.hint');
-        document.getElementById('targetSelectCancelBtn').textContent = __('target.select.cancel');
-        confirmBtn.textContent = __('target.select.confirm');
-
-        confirmBtn.disabled = true;
-        container.innerHTML = '<div class="target-list-loading"><div class="spinner"></div><p>' + __('target.select.loading') + '</p></div>';
-        modal.style.display = 'flex';
-
-        loadTargetList(container);
-    }
-
-    function closeTargetSelectModal() {
-        document.getElementById('targetSelectModal').style.display = 'none';
-        pendingTargetMaterial = null;
-    }
-
-    async function loadTargetList(container) {
-        try {
-            var targets;
-            if (window.MaterialPlazaBridge && window.MaterialPlazaBridge.requestTargetList) {
-                targets = await window.MaterialPlazaBridge.requestTargetList();
-            } else {
-                showToast('无法获取目标列表：不在编辑器内', 'error');
-                closeTargetSelectModal();
-                return;
-            }
-
-            if (!targets || targets.length === 0) {
-                container.innerHTML = '<div class="target-list-empty">' + __('target.select.empty') + '</div>';
-                return;
-            }
-
-            renderTargetList(container, targets);
-        } catch (err) {
-            console.error('Failed to load target list:', err);
-            container.innerHTML = '<div class="target-list-empty">' + __('target.select.empty') + '</div>';
-        }
-    }
-
-    function renderTargetList(container, targets) {
-        var html = '';
-        var selectedId = null;
-        var confirmBtn = document.getElementById('targetSelectConfirmBtn');
-
-        // 先显示背景，再显示角色
-        var stageTargets = targets.filter(function (t) { return t.isStage; });
-        var spriteTargets = targets.filter(function (t) { return !t.isStage; });
-        var ordered = stageTargets.concat(spriteTargets);
-
-        ordered.forEach(function (t) {
-            var typeLabel = t.isStage ? __('target.select.stage') : __('target.select.sprite');
-            var metaParts = [];
-            if (t.costumeCount > 0) metaParts.push(t.costumeCount + ' 个造型');
-            if (t.soundCount > 0) metaParts.push(t.soundCount + ' 个声音');
-            var meta = metaParts.join(' | ');
-
-            // 缩略图：背景使用舞台图标，角色使用第一个造型或默认图标
-            var thumbHtml = '';
-            if (t.isStage) {
-                thumbHtml = '<div class="target-list-item-thumb stage-thumb"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" opacity="0.5"><rect x="2" y="2" width="20" height="20" rx="2"/><rect x="6" y="6" width="12" height="12" rx="1"/></svg></div>';
-            } else {
-                thumbHtml = '<div class="target-list-item-thumb"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" opacity="0.5"><circle cx="12" cy="8" r="4"/><path d="M5 20v-2a7 7 0 0 1 14 0v2"/></svg></div>';
-            }
-
-            html += '<div class="target-list-item" data-target-id="' + escapeHtml(t.id) + '">' +
-                thumbHtml +
-                '<div class="target-list-item-info">' +
-                    '<div class="target-list-item-name">' + escapeHtml(t.name) + '</div>' +
-                    '<div class="target-list-item-meta">' + escapeHtml(typeLabel) + (meta ? ' | ' + escapeHtml(meta) : '') + '</div>' +
-                '</div>' +
-                '<span class="target-list-item-badge">' + escapeHtml(typeLabel) + '</span>' +
-                '</div>';
-        });
-
-        container.innerHTML = html;
-
-        // 点击选择
-        var items = container.querySelectorAll('.target-list-item');
-        items.forEach(function (item) {
-            item.addEventListener('click', function () {
-                items.forEach(function (i) { i.classList.remove('selected'); });
-                this.classList.add('selected');
-                selectedId = this.getAttribute('data-target-id');
-                confirmBtn.disabled = false;
-            });
-        });
-
-        // 确认按钮
-        confirmBtn.onclick = function () {
-            if (!selectedId) return;
-            confirmBtn.disabled = true;
-            applyMaterialToTarget(selectedId);
-        };
-    }
-
-    async function applyMaterialToTarget(targetId) {
-        if (!pendingTargetMaterial) return;
-        showToast(__('toast.apply'), 'info');
-        closeTargetSelectModal();
-
-        try {
-            if (window.MaterialPlazaBridge && window.MaterialPlazaBridge.requestApplyMaterialToTarget) {
-                window.MaterialPlazaBridge.requestApplyMaterialToTarget(targetId, pendingTargetMaterial);
-            } else {
-                window.parent.postMessage({
-                    channel: 'rwc-material-plaza',
-                    type: 'applyMaterial',
-                    data: Object.assign({}, pendingTargetMaterial, { targetId: targetId })
-                }, '*');
-            }
-            showToast(__('toast.apply.success'), 'success');
-        } catch (err) {
-            console.error('Failed to apply material:', err);
-            showToast(__('toast.apply.fail'), 'error');
-        }
-    }
-
     // 根据文件扩展名判断素材类型
     function getFileType(filename) {
         var ext = filename.split('.').pop().toLowerCase();
         if (ext === 'sprite3') return 'sprite';
-        if (ext === 'svg' || ext === 'png') return 'costume';
-        if (ext === 'wav' || ext === 'mp3') return 'sound';
         return null;
     }
 
@@ -940,11 +697,7 @@
     function getFileMime(filename) {
         var ext = filename.split('.').pop().toLowerCase();
         var mimeMap = {
-            'sprite3': 'application/zip',
-            'svg': 'image/svg+xml',
-            'png': 'image/png',
-            'wav': 'audio/wav',
-            'mp3': 'audio/mpeg'
+            'sprite3': 'application/zip'
         };
         return mimeMap[ext] || 'application/octet-stream';
     }
@@ -952,9 +705,7 @@
     // 获取文件类型显示标签
     function getFileTypeLabel(type) {
         var labels = {
-            'sprite': __('file.type.sprite'),
-            'costume': __('file.type.costume'),
-            'sound': __('file.type.sound')
+            'sprite': __('file.type.sprite')
         };
         return labels[type] || type;
     }
@@ -1001,39 +752,6 @@
             '</svg>';
     }
 
-    // 造型默认图标（和角色使用同一个 sprite-library SVG，颜色通过 CSS 适配主题）
-    function getCostumeIconSvg() {
-        return getSpriteLibraryIconSvg();
-    }
-
-    // 音频图标 SVG（适配深色/浅色模式，使用 currentColor）
-    function getAudioIconSvg() {
-        return '<svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">' +
-            '<path d="M12.4785,12.6667 C12.3145,12.6667 12.1459,12.6272 11.9926,12.5441 C11.5374,12.296 11.3856,11.7562 11.6554,11.3376 C12.1689,10.5371 12.1689,9.54492 11.6554,8.74581 C11.3856,8.32582 11.5374,7.78603 11.9926,7.53798 C12.4524,7.29275 13.038,7.43087 13.3047,7.84804 C14.1738,9.20103 14.1738,10.881 13.3047,12.234 C13.1269,12.513 12.8065,12.6667 12.4785,12.6667 Z M15.3807,13.8333 C15.2409,13.8333 15.0959,13.7963 14.9665,13.7182 C14.5785,13.4853 14.4492,12.9785 14.6791,12.5855 C15.5949,11.016 15.5949,9.06549 14.6791,7.49738 C14.4492,7.10436 14.5785,6.59622 14.9665,6.36332 C15.3559,6.13439 15.8549,6.26275 16.0848,6.65444 C17.3051,8.74261 17.3051,11.3389 16.0848,13.4271 C15.932,13.6891 15.6603,13.8333 15.3807,13.8333 Z M10.3043,5.62502 L10.3043,13.8737 C10.3043,14.8509 9.1097,15.3625 8.36478,14.7038 L6.7566,13.2798 C6.18712,12.7763 5.44499,12.4969 4.67362,12.4969 L4.39237,12.4969 C3.62378,12.4969 3,11.8935 3,11.1471 L3,8.36647 C3,7.62138 3.62378,7.01666 4.39237,7.01666 L4.65831,7.01666 C5.42968,7.01666 6.17181,6.73726 6.74129,6.23378 L8.36478,4.79624 C9.1097,4.13753 10.3043,4.64911 10.3043,5.62502 Z"/>' +
-            '</svg>';
-    }
-
-    // 获取默认图标 HTML（根据类型）
-    function getDefaultIconForType(type) {
-        var classes = 'default-type-icon ' + type + '-icon';
-        if (type === 'sprite') {
-            return '<div class="' + classes + '">' + getSpriteLibraryIconSvg() + '</div>';
-        } else if (type === 'costume') {
-            return '<div class="' + classes + '">' + getCostumeIconSvg() + '</div>';
-        } else if (type === 'sound') {
-            return '<div class="' + classes + '">' + getAudioIconSvg() + '</div>';
-        }
-        return '';
-    }
-
-    // 获取默认类型 SVG（仅 SVG，不包含外层 div，用于卡片缩略图）
-    function getDefaultTypeSvg(type) {
-        if (type === 'sprite') return getSpriteLibraryIconSvg();
-        if (type === 'costume') return getCostumeIconSvg();
-        if (type === 'sound') return getAudioIconSvg();
-        return '';
-    }
-
     // 处理选择的文件
     function handleFileSelect(file) {
         if (!file) return;
@@ -1071,13 +789,7 @@
         document.getElementById('filePreviewName').textContent = name;
         document.getElementById('filePreviewType').textContent = getFileTypeLabel(type);
         var thumbEl = document.getElementById('filePreviewThumb');
-        thumbEl.innerHTML = '';
-        // 图片类文件显示实际预览，其他显示默认图标
-        if (type === 'costume' && (mime === 'image/png' || mime === 'image/svg+xml')) {
-            thumbEl.innerHTML = '<img src="data:' + mime + ';base64,' + body + '" alt="' + escapeHtml(name) + '" style="max-width:100%;max-height:100%;object-fit:contain" />';
-        } else {
-            thumbEl.innerHTML = getDefaultIconForType(type);
-        }
+        thumbEl.innerHTML = '<div class="default-type-icon sprite-icon">' + getSpriteLibraryIconSvg() + '</div>';
         checkUploadForm();
     }
 
@@ -1277,18 +989,6 @@
             renderMaterials();
         });
 
-        // 过滤器
-        document.querySelectorAll('.filter-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                document.querySelectorAll('.filter-btn').forEach(function (b) {
-                    b.classList.remove('active');
-                });
-                this.classList.add('active');
-                currentFilter = this.dataset.filter;
-                renderMaterials();
-            });
-        });
-
         // 添加按钮 - 检查是否在编辑器内
         var addBtn = document.getElementById('addBtn');
         if (isInIframe()) {
@@ -1315,14 +1015,6 @@
         document.getElementById('uploadModalClose').addEventListener('click', closeUploadModal);
         document.getElementById('uploadCancelBtn').addEventListener('click', closeUploadModal);
         document.getElementById('uploadSubmitBtn').addEventListener('click', handleUpload);
-        // 目标选择弹窗
-        document.getElementById('targetSelectClose').addEventListener('click', closeTargetSelectModal);
-        document.getElementById('targetSelectCancelBtn').addEventListener('click', closeTargetSelectModal);
-        document.getElementById('targetSelectModal').addEventListener('click', function (e) {
-            if (e.target === this || e.target.classList.contains('modal-overlay')) {
-                closeTargetSelectModal();
-            }
-        });
         document.getElementById('filePreviewRemove').addEventListener('click', function () {
             selectedFileData = null;
             document.getElementById('fileInput').value = '';

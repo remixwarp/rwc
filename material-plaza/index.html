@@ -30,7 +30,7 @@
                     <circle cx="11" cy="11" r="8"/>
                     <path d="M21 21l-4.35-4.35"/>
                 </svg>
-                <input type="text" id="searchInput" placeholder="搜索素材名称、作者、类型..." />
+                <input type="text" id="searchInput" placeholder="搜索素材名称、作者..." />
             </div>
             <button id="refreshBtn" class="icon-btn" title="刷新">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -49,13 +49,6 @@
                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
             <a id="editorHintLink" href="https://rw-c.pages.dev/material-plaza/" target="_blank" rel="noopener noreferrer">上传素材请转到独立页面</a>
-        </div>
-        <div class="filter-bar" id="filterBar">
-            <button class="filter-btn active" data-filter="all">全部</button>
-            <button class="filter-btn" data-filter="script">积木</button>
-            <button class="filter-btn" data-filter="sprite">角色</button>
-            <button class="filter-btn" data-filter="costume">造型</button>
-            <button class="filter-btn" data-filter="sound">声音</button>
         </div>
     </div>
 
@@ -101,13 +94,13 @@
                 <div class="form-group">
                     <label>选择素材文件 *</label>
                     <div id="fileUploadZone" class="file-upload-zone">
-                        <input type="file" id="fileInput" class="file-input" accept=".sprite3,.svg,.png,.wav,.mp3" />
+                        <input type="file" id="fileInput" class="file-input" accept=".sprite3" />
                         <div class="file-upload-placeholder" id="fileUploadPlaceholder">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/>
                             </svg>
                             <p>点击选择文件</p>
-                            <span class="file-upload-hint">支持 .sprite3(角色) .svg/.png(造型) .wav/.mp3(音频)</span>
+                            <span class="file-upload-hint">支持 .sprite3(角色)</span>
                         </div>
                         <div id="filePreview" class="file-preview" style="display:none">
                             <div class="file-preview-thumb" id="filePreviewThumb"></div>
@@ -156,30 +149,6 @@
             <div class="modal-body" style="text-align:center;padding:30px;">
                 <p id="captchaHint" style="margin-bottom:20px;color:var(--text-muted);">请完成验证后继续上传</p>
                 <div id="captchaContainer"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 目标选择弹窗 -->
-    <div id="targetSelectModal" class="modal" style="display:none;">
-        <div class="modal-overlay"></div>
-        <div class="modal-content target-select-modal">
-            <div class="modal-header">
-                <h2 id="targetSelectTitle">选择应用目标</h2>
-                <button class="modal-close" id="targetSelectClose">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p id="targetSelectHint" class="target-select-hint">请选择要将素材应用到哪个角色或背景：</p>
-                <div id="targetListContainer" class="target-list-container">
-                    <div class="target-list-loading">
-                        <div class="spinner"></div>
-                        <p>正在加载目标列表...</p>
-                    </div>
-                </div>
-                <div class="form-actions">
-                    <button class="btn btn-secondary" id="targetSelectCancelBtn">取消</button>
-                    <button class="btn btn-primary" id="targetSelectConfirmBtn" disabled>确定应用</button>
-                </div>
             </div>
         </div>
     </div>
