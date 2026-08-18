@@ -226,50 +226,60 @@
         }
     }
 
-    // 是否为可用的桥接模式
-    function canUseBridge() {
-        return isInIframe() && window.MaterialPlazaBridge && window.MaterialPlazaBridge.forwardGithubFetch;
+    // 通过编辑器转发读取请求（避免 iframe 内 CORS 问题）
+    function forwardGithubRead(path) {
+        if (!isInIframe() || !window.MaterialPlazaBridge || !window.MaterialPlazaBridge.forwardGithubRead) {
+            return Promise.reject(new Error('Bridge not available'));
+        }
+        return window.MaterialPlazaBridge.forwardGithubRead(path);
     }
 
-    async function githubFetch(path, options) {
-        options = options || {};
-        options.headers = options.headers || {};
-        options.headers.Authorization = 'Bearer ' + GITHUB_TOKEN;
-        options.headers.Accept = 'application/vnd.github.v3+json';
-
-        if (canUseBridge()) {
-            // 通过编辑器父窗口转发请求（解决 iframe 内 CORS 问题）
-            const result = await window.MaterialPlazaBridge.forwardGithubFetch(path, {
-                method: options.method || 'GET',
-                body: options.body || null
-            });
-            if (result.error) {
-                throw new Error(result.error);
-            }
-            // 模拟 Response 对象，兼容现有调用方
-            return {
-                ok: result.status >= 200 && result.status < 300,
-                status: result.status || 200,
-                json: async function () { return result.data; },
-                text: async function () { return JSON.stringify(result.data); }
-            };
+    // 读取操作：先尝试桥接转发，失败则匿名直接请求（无 Authorization header）
+    async function githubFetch(path) {
+        // 尝试通过编辑器转发
+        try {
+            const result = await forwardGithubRead(path);
+            return result;
+        } catch (e) {
+            console.warn('Forward request failed, trying direct fetch:', e.message);
         }
-
-        // 直接 fetch（浏览器独立打开时使用）
+        // 直接匿名请求（无 Authorization header，不触发 CORS 预检）
         const url = GITHUB_API_BASE + path;
-        const res = await fetch(url, options);
+        const res = await fetch(url, {
+            headers: { 'Accept': 'application/vnd.github.v3+json' }
+        });
         if (!res.ok) {
             const text = await res.text();
             throw new Error(text || ('HTTP ' + res.status));
         }
-        return res;
+        return res.json();
+    }
+
+    // 写入操作：直接认证请求（仅在用户主动操作时调用，如上传/删除）
+    async function githubWrite(path, method, body) {
+        const headers = {
+            'Authorization': 'token ' + GITHUB_TOKEN,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+        };
+        const url = GITHUB_API_BASE + path;
+        const res = await fetch(url, {
+            method: method,
+            headers: headers,
+            body: JSON.stringify(body)
+        });
+        if (!res.ok) {
+            let errorBody = '';
+            try { errorBody = await res.text(); } catch (_) {}
+            throw new Error(errorBody || ('HTTP ' + res.status));
+        }
+        return res.json();
     }
 
     // 获取文件内容 (base64 encoded)
     async function getFileContent(path) {
         try {
-            const res = await githubFetch('/contents/' + path);
-            const data = await res.json();
+            const data = await githubFetch('/contents/' + path);
             return {
                 content: atob(data.content.replace(/\n/g, '')),
                 sha: data.sha
@@ -292,24 +302,18 @@
         if (existing && existing.sha) {
             body.sha = existing.sha;
         }
-        const res = await githubFetch('/contents/' + path, {
-            method: 'PUT',
-            body: JSON.stringify(body)
-        });
-        return res.json();
+        return githubWrite('/contents/' + path, 'PUT', body);
     }
 
     // 删除文件
     async function deleteFile(path, message) {
         const existing = await getFileContent(path);
         if (!existing) return;
-        await githubFetch('/contents/' + path, {
-            method: 'DELETE',
-            body: JSON.stringify({
-                message: message,
-                sha: existing.sha
-            })
-        });
+        const body = {
+            message: message,
+            sha: existing.sha
+        };
+        return githubWrite('/contents/' + path, 'DELETE', body);
     }
 
     // ===== 素材操作 =====
