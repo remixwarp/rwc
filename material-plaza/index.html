@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>素材广场</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- 顶部栏 -->
+    <div class="header">
+        <div class="header-left">
+            <h1 class="header-title">素材广场</h1>
+        </div>
+        <div class="header-actions">
+            <button id="langToggleBtn" class="icon-btn" title="EN">中</button>
+        </div>
+    </div>
+
+    <!-- 工具栏 -->
+    <div class="toolbar">
+        <div class="toolbar-row">
+            <div class="search-box">
+                <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input type="text" id="searchInput" placeholder="搜索素材名称、作者、类型..." />
+            </div>
+            <button id="refreshBtn" class="icon-btn" title="刷新">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 2v6h-6M3 12a9 9 0 0 1 15.364-6.364L21 8M3 22v-6h6M21 12a9 9 0 0 1-15.364 6.364L3 16"/>
+                </svg>
+            </button>
+            <button id="addBtn" class="primary-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                <span id="addBtnText">添加素材</span>
+            </button>
+        </div>
+        <div class="filter-bar" id="filterBar">
+            <button class="filter-btn active" data-filter="all">全部</button>
+            <button class="filter-btn" data-filter="script">积木</button>
+            <button class="filter-btn" data-filter="sprite">角色</button>
+            <button class="filter-btn" data-filter="costume">造型</button>
+            <button class="filter-btn" data-filter="sound">声音</button>
+        </div>
+    </div>
+
+    <!-- 素材网格 -->
+    <div class="content">
+        <div id="loadingState" class="loading-state">
+            <div class="spinner"></div>
+            <p>正在加载素材列表...</p>
+        </div>
+        <div id="emptyState" class="empty-state" style="display:none">
+            <div class="empty-icon">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>
+                </svg>
+            </div>
+            <h3>暂无素材</h3>
+            <p>点击右上角的 + 按钮添加你的第一个素材</p>
+        </div>
+        <div id="materialGrid" class="material-grid"></div>
+    </div>
+
+    <!-- 上传弹窗 -->
+    <div id="uploadModal" class="modal" style="display:none">
+        <div class="modal-overlay"></div>
+        <div class="modal-content upload-modal">
+            <div class="modal-header">
+                <h2>上传素材</h2>
+                <button class="modal-close" id="uploadModalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>作者名称 *</label>
+                    <input type="text" id="authorInput" class="form-input" placeholder="输入作者名称" />
+                </div>
+                <div class="form-group">
+                    <label>素材描述 *</label>
+                    <textarea id="descInput" class="form-textarea" placeholder="输入素材描述" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>拖拽素材到下方区域</label>
+                    <div id="dropZone" class="drop-zone">
+                        <div class="drop-zone-placeholder">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            <p>从编辑器拖拽素材到此处</p>
+                        </div>
+                        <div id="dropPreview" class="drop-preview" style="display:none">
+                            <div class="drop-preview-thumb" id="dropPreviewThumb"></div>
+                            <div class="drop-preview-info">
+                                <span class="drop-preview-name" id="dropPreviewName"></span>
+                                <span class="drop-preview-type" id="dropPreviewType"></span>
+                            </div>
+                            <button class="drop-preview-remove" id="dropPreviewRemove">&times;</button>
+                        </div>
+                        <div id="dropZoneStatus" class="drop-zone-status"></div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-secondary" id="uploadCancelBtn">取消</button>
+                    <button class="btn btn-primary" id="uploadSubmitBtn" disabled>上传素材</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div id="toast" class="toast"></div>
+
+    <script src="editor-bridge.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
