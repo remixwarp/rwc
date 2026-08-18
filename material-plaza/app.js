@@ -59,7 +59,10 @@
             'type.costume': '造型',
             'type.sound': '声音',
             'capture.hint': '请完成验证后继续上传',
-            'remove': '移除'
+            'remove': '移除',
+            'editor.hint': '上传素材请转到独立页面操作',
+            'editor.hintLink': '上传素材请转到 {url}',
+            'editor.uploadDisabled': '在编辑器内无法上传素材'
         },
         en: {
             'title': 'Material Plaza',
@@ -107,7 +110,10 @@
             'type.costume': 'Costume',
             'type.sound': 'Sound',
             'capture.hint': 'Please complete the captcha to continue',
-            'remove': 'Remove'
+            'remove': 'Remove',
+            'editor.hint': 'Please open in standalone page to upload materials',
+            'editor.hintLink': 'Please go to {url} to upload materials',
+            'editor.uploadDisabled': 'Upload is disabled inside the editor'
         }
     };
 
@@ -203,6 +209,11 @@
         // Refresh button title
         const refreshBtn = document.getElementById('refreshBtn');
         if (refreshBtn) refreshBtn.title = __('toast.refresh');
+        // Editor hint
+        const editorHintText = document.getElementById('editorHintText');
+        if (editorHintText) {
+            editorHintText.textContent = __('editor.hintLink', {url: 'https://rw-c.pages.dev/material-plaza/'});
+        }
     }
 
     // ===== DOM 引用 =====
@@ -332,16 +343,70 @@
         return githubWrite('/contents/' + path, 'DELETE', body);
     }
 
+    // 获取原始文件直链 URL
+    function resolveRawUrl(path) {
+        return 'https://raw.githubusercontent.com/' + GITHUB_REPO_OWNER + '/' + GITHUB_REPO_NAME + '/main/' + path;
+    }
+
     // ===== 素材操作 =====
-    // 从 index.json 加载素材列表
+    // 通过 Git Tree API 扫描 materials/ 子文件夹加载素材列表
     async function loadMaterials() {
         try {
-            const index = await getFileContent(MATERIALS_PATH + '/index.json');
-            if (index) {
-                materials = JSON.parse(index.content);
-            } else {
-                materials = [];
+            const tree = await githubFetch('/git/trees/main?recursive=1');
+            const matDirs = new Map(); // id -> { files[] }
+
+            if (!tree.tree) {
+                throw new Error('无法获取仓库文件树');
             }
+
+            // 遍历文件树，按素材 ID 分组
+            for (const item of tree.tree) {
+                if (item.path.startsWith(MATERIALS_PATH + '/')) {
+                    const parts = item.path.split('/');
+                    if (parts.length >= 3) {
+                        const matId = parts[1]; // materials/{matId}/...
+                        if (!matDirs.has(matId)) {
+                            matDirs.set(matId, { id: matId, files: [] });
+                        }
+                        matDirs.get(matId).files.push(item);
+                    }
+                }
+            }
+
+            // 加载每个素材的 material.json
+            const matList = [];
+            for (const [matId, dir] of matDirs) {
+                const metaFile = dir.files.find(f => f.path.endsWith('material.json'));
+                if (!metaFile) continue;
+
+                try {
+                    const meta = await githubFetch('/contents/' + metaFile.path);
+                    const metaContent = JSON.parse(base64ToString(meta.content));
+                    matList.push({
+                        id: matId,
+                        name: metaContent.name || matId,
+                        title: metaContent.title || metaContent.name || matId,
+                        author: metaContent.author || __('unknown.author'),
+                        description: metaContent.description || '',
+                        type: metaContent.type || 'script',
+                        mime: metaContent.mime || '',
+                        thumbnail: metaContent.thumbnail || '',
+                        uploadDate: metaContent.uploadDate || ''
+                    });
+                } catch (err) {
+                    console.warn('Failed to load material ' + matId + ':', err);
+                }
+            }
+
+            // 按上传日期排序（最新的在前）
+            matList.sort(function (a, b) {
+                if (a.uploadDate && b.uploadDate) {
+                    return new Date(b.uploadDate) - new Date(a.uploadDate);
+                }
+                return 0;
+            });
+
+            materials = matList;
             renderMaterials();
         } catch (err) {
             console.error('Failed to load materials:', err);
@@ -351,40 +416,45 @@
         }
     }
 
-    // 获取单个素材的完整数据（含 body）
+    // 获取单个素材的完整数据（含 body）- 从子文件夹读取
     async function getMaterialBody(id) {
-        const file = await getFileContent(MATERIALS_PATH + '/' + id + '.json');
-        if (!file) return null;
-        return JSON.parse(file.content);
+        try {
+            const metaFile = await getFileContent(MATERIALS_PATH + '/' + id + '/material.json');
+            if (!metaFile) return null;
+            const meta = JSON.parse(metaFile.content);
+
+            // 读取 data.bin 文件内容
+            try {
+                const dataFile = await githubFetch('/contents/' + MATERIALS_PATH + '/' + id + '/data.bin');
+                meta.body = dataFile.content; // GitHub API 返回 base64 内容
+            } catch (e) {
+                // 兼容旧格式：尝试读取 {id}.json 文件
+                try {
+                    const oldFile = await getFileContent(MATERIALS_PATH + '/' + id + '.json');
+                    if (oldFile) {
+                        const oldMeta = JSON.parse(oldFile.content);
+                        meta.body = oldMeta.body || '';
+                    }
+                } catch (e2) {
+                    meta.body = '';
+                }
+            }
+
+            return meta;
+        } catch (err) {
+            console.warn('Failed to get material body for ' + id + ':', err);
+            return null;
+        }
     }
 
-    // 上传素材到 GitHub
+    // 上传素材到 GitHub（使用 Git Tree API 创建子文件夹）
     async function uploadMaterial(materialData) {
         const id = generateId();
         const now = new Date().toISOString();
-        const material = {
-            id: id,
-            name: materialData.name,
-            title: materialData.title || materialData.name,
-            author: materialData.author,
-            description: materialData.description || '',
-            type: materialData.type,
-            mime: materialData.mime,
-            body: materialData.body,
-            bodyMD5: materialData.bodyMD5,
-            thumbnail: materialData.thumbnail || '',
-            uploadDate: now
-        };
+        const matDir = MATERIALS_PATH + '/' + id;
 
-        // 上传素材文件
-        await putFile(
-            MATERIALS_PATH + '/' + id + '.json',
-            JSON.stringify(material),
-            'Upload material: ' + materialData.name
-        );
-
-        // 更新 index.json
-        const indexEntry = {
+        // 构建 meta.json
+        const meta = {
             id: id,
             name: materialData.name,
             title: materialData.title || materialData.name,
@@ -395,30 +465,82 @@
             thumbnail: materialData.thumbnail || '',
             uploadDate: now
         };
-        materials.unshift(indexEntry);
-        await putFile(
-            MATERIALS_PATH + '/index.json',
-            JSON.stringify(materials, null, 2),
-            'Update material index: ' + materialData.name
-        );
+        const metaContent = JSON.stringify(meta, null, 2);
+        const metaBase64 = stringToBase64(metaContent);
+
+        // 1) 获取当前 HEAD 引用
+        const refData = await githubWrite('/git/refs/heads/main', 'GET');
+        const headSha = refData.object.sha;
+
+        // 2) 获取基础树
+        const commitData = await githubWrite('/git/commits/' + headSha, 'GET');
+        const baseTreeSha = commitData.tree.sha;
+
+        // 3) 创建两个 blob
+        const [metaBlob, dataBlob] = await Promise.all([
+            githubWrite('/git/blobs', 'POST', { content: metaBase64, encoding: 'base64' }),
+            githubWrite('/git/blobs', 'POST', { content: materialData.body, encoding: 'base64' })
+        ]);
+
+        // 4) 创建新树
+        const newTree = await githubWrite('/git/trees', 'POST', {
+            base_tree: baseTreeSha,
+            tree: [
+                { path: matDir + '/material.json', mode: '100644', type: 'blob', sha: metaBlob.sha },
+                { path: matDir + '/data.bin', mode: '100644', type: 'blob', sha: dataBlob.sha }
+            ]
+        });
+
+        // 5) 创建提交
+        const newCommit = await githubWrite('/git/commits', 'POST', {
+            message: 'Upload material: ' + materialData.name + ' by ' + materialData.author,
+            tree: newTree.sha,
+            parents: [headSha]
+        });
+
+        // 6) 更新 main 分支引用
+        await githubWrite('/git/refs/heads/main', 'PATCH', { sha: newCommit.sha, force: false });
 
         return id;
     }
 
-    // 删除素材
+    // 删除素材（使用 Git Tree API 移除子文件夹的所有文件）
     async function deleteMaterial(id) {
         const material = materials.find(function (m) { return m.id === id; });
         if (!material) return;
-        await deleteFile(
-            MATERIALS_PATH + '/' + id + '.json',
-            'Delete material: ' + material.name
-        );
+
+        // 1) 获取当前 HEAD 引用
+        const refData = await githubWrite('/git/refs/heads/main', 'GET');
+        const headSha = refData.object.sha;
+
+        // 2) 获取完整文件树
+        const treeData = await githubWrite('/git/trees/' + headSha + '?recursive=1', 'GET');
+
+        // 3) 过滤掉要删除的素材目录下的所有文件
+        const prefix = MATERIALS_PATH + '/' + id + '/';
+        const filteredTree = treeData.tree.filter(function (item) {
+            return !item.path.startsWith(prefix);
+        });
+
+        // 4) 创建新树（排除已删除的素材文件，不使用 base_tree 以简化）
+        const newTree = await githubWrite('/git/trees', 'POST', {
+            tree: filteredTree.map(function (item) {
+                return { path: item.path, mode: item.mode, type: item.type, sha: item.sha };
+            })
+        });
+
+        // 5) 创建提交
+        const newCommit = await githubWrite('/git/commits', 'POST', {
+            message: 'Delete material: ' + (material.title || material.name) + ' by ' + material.author,
+            tree: newTree.sha,
+            parents: [headSha]
+        });
+
+        // 6) 更新 main 分支引用
+        await githubWrite('/git/refs/heads/main', 'PATCH', { sha: newCommit.sha, force: false });
+
+        // 7) 从本地列表中移除
         materials = materials.filter(function (m) { return m.id !== id; });
-        await putFile(
-            MATERIALS_PATH + '/index.json',
-            JSON.stringify(materials, null, 2),
-            'Update material index after delete: ' + material.name
-        );
     }
 
     // 生成唯一 ID
@@ -926,8 +1048,16 @@
             });
         });
 
-        // 添加按钮
-        document.getElementById('addBtn').addEventListener('click', openUploadModal);
+        // 添加按钮 - 检查是否在编辑器内
+        var addBtn = document.getElementById('addBtn');
+        if (isInIframe()) {
+            // 在编辑器内：隐藏上传按钮，显示提示条
+            addBtn.style.display = 'none';
+            document.getElementById('editorHint').style.display = 'flex';
+            document.getElementById('editorHintText').textContent = __('editor.hintLink', {url: 'https://rw-c.pages.dev/material-plaza/'});
+        } else {
+            addBtn.addEventListener('click', openUploadModal);
+        }
 
         // 刷新按钮
         document.getElementById('refreshBtn').addEventListener('click', function () {
