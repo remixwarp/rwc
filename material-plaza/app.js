@@ -641,10 +641,14 @@
         if (material.thumbnail && material.type !== 'sprite' && material.type !== 'costume') {
             // sprite/costume 始终使用默认SVG图标（不解析造型，统一显示）
             if (material.type === 'sound') {
-                // 音频图标：使用 currentColor 适配深色/浅色模式
-                thumbContent = '<div class="material-card-thumb-icon sound-icon">' +
-                    material.thumbnail +
-                    '</div>';
+                // 音频缩略图：如果是 data URL 则显示为图片，否则显示默认 SVG 图标
+                if (material.thumbnail.startsWith('data:')) {
+                    thumbContent = '<img src="' + escapeHtml(material.thumbnail) + '" alt="' + escapeHtml(material.title || material.name) + '" loading="lazy" />';
+                } else {
+                    thumbContent = '<div class="material-card-thumb-icon sound-icon">' +
+                        material.thumbnail +
+                        '</div>';
+                }
             } else {
                 thumbContent = '<img src="' + escapeHtml(material.thumbnail) + '" alt="' + escapeHtml(material.title || material.name) + '" loading="lazy" />';
             }
