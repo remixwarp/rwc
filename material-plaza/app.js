@@ -638,7 +638,8 @@
 
         // 构建缩略图 HTML
         var thumbContent = '';
-        if (material.thumbnail) {
+        if (material.thumbnail && material.type !== 'sprite' && material.type !== 'costume') {
+            // sprite/costume 始终使用默认SVG图标（不解析造型，统一显示）
             if (material.type === 'sound') {
                 // 音频图标：使用 currentColor 适配深色/浅色模式
                 thumbContent = '<div class="material-card-thumb-icon sound-icon">' +
@@ -648,10 +649,15 @@
                 thumbContent = '<img src="' + escapeHtml(material.thumbnail) + '" alt="' + escapeHtml(material.title || material.name) + '" loading="lazy" />';
             }
         } else {
-            // 无缩略图时显示占位图标
-            thumbContent = '<div class="material-card-thumb-placeholder" style="font-size:32px;color:#ccc">' +
-                getTypeIcon(material.type) +
-                '</div>';
+            // 无缩略图或 sprite/costume 类型时显示默认图标
+            var svgHtml = getDefaultTypeSvg(material.type);
+            if (svgHtml) {
+                thumbContent = '<div class="material-card-thumb-icon ' + material.type + '-icon">' + svgHtml + '</div>';
+            } else {
+                thumbContent = '<div class="material-card-thumb-placeholder" style="font-size:32px;color:#ccc">' +
+                    getTypeIcon(material.type) +
+                    '</div>';
+            }
         }
 
         card.innerHTML =
@@ -820,112 +826,6 @@
         return new TextDecoder('utf-8').decode(bytes);
     }
 
-    // 简单的 ZIP 解析器：从 sprite3 文件中提取第一个造型的图片
-    function parseSprite3Thumbnail(arrayBuffer) {
-        try {
-            var bytes = new Uint8Array(arrayBuffer);
-            var view = new DataView(arrayBuffer);
-            var offset = 0;
-            var files = {};
-
-            // 遍历 ZIP 本地文件头
-            while (offset + 30 < bytes.length) {
-                var sig = view.getUint32(offset, true);
-                if (sig === 0x04034b50) { // 本地文件头签名
-                    var flags = view.getUint16(offset + 6, true);
-                    var compression = view.getUint16(offset + 8, true);
-                    var compressedSize = view.getUint32(offset + 18, true);
-                    var uncompressedSize = view.getUint32(offset + 22, true);
-                    var nameLen = view.getUint16(offset + 26, true);
-                    var extraLen = view.getUint16(offset + 28, true);
-
-                    var name = '';
-                    for (var i = 0; i < nameLen; i++) {
-                        name += String.fromCharCode(bytes[offset + 30 + i]);
-                    }
-
-                    var dataOffset = offset + 30 + nameLen + extraLen;
-                    var dataEnd = dataOffset + compressedSize;
-
-                    if (compressedSize > 0 || uncompressedSize > 0) {
-                        var fileData = arrayBuffer.slice(dataOffset, dataEnd);
-                        if (compression === 0) {
-                            // 未压缩
-                            files[name] = fileData;
-                        } else if (compression === 8) {
-                            // Deflate 压缩 - 使用浏览器 API
-                            try {
-                                var ds = new DecompressionStream('deflate-raw');
-                                var writer = ds.writable.getWriter();
-                                writer.write(fileData);
-                                writer.close();
-                                var reader = ds.readable.getReader();
-                                var chunks = [];
-                                function readAll() {
-                                    return reader.read().then(function (result) {
-                                        if (result.done) return new Blob(chunks).arrayBuffer();
-                                        chunks.push(result.value);
-                                        return readAll();
-                                    });
-                                }
-                                // 同步方式：对于小文件，用 Promise 处理
-                                // 实际上这里需要异步，但为了保持同步逻辑，只在 sprite.json 和图片上使用
-                                // 先标记为未解析，后面再处理
-                            } catch (e) {
-                                // 不支持 DecompressionStream
-                            }
-                        }
-                    }
-
-                    offset = dataEnd;
-                } else if (sig === 0x02014b50 || sig === 0x06054b50) {
-                    // 中央目录或结束标记，停止
-                    break;
-                } else {
-                    offset++;
-                }
-            }
-
-            // 读取 sprite.json
-            if (files['sprite.json']) {
-                var jsonStr = new TextDecoder('utf-8').decode(new Uint8Array(files['sprite.json']));
-                var spriteData = JSON.parse(jsonStr);
-
-                // 获取第一个造型
-                if (spriteData.costumes && spriteData.costumes.length > 0) {
-                    var firstCostume = spriteData.costumes[0];
-                    var md5ext = firstCostume.md5ext || firstCostume.baseLayerMD5 || '';
-                    // 尝试获取造型名称对应的文件
-                    var costumeAsset = files[md5ext];
-                    if (costumeAsset) {
-                        var ext = md5ext.split('.').pop().toLowerCase();
-                        var mime = ext === 'svg' ? 'image/svg+xml' : 'image/png';
-                        var b64 = arrayBufferToBase64(costumeAsset);
-                        return 'data:' + mime + ';base64,' + b64;
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn('Failed to parse sprite3 thumbnail:', e);
-        }
-        return null;
-    }
-
-    // 从已读取的文件数据中提取缩略图
-    function extractFileThumbnail(file, type, arrayBuffer, textContent) {
-        if (type === 'sprite') {
-            return parseSprite3Thumbnail(arrayBuffer);
-        } else if (type === 'costume') {
-            // SVG 或 PNG 直接作为缩略图
-            if (file.name.endsWith('.svg')) {
-                return 'data:image/svg+xml;base64,' + arrayBufferToBase64(arrayBuffer);
-            } else if (file.name.endsWith('.png')) {
-                return 'data:image/png;base64,' + arrayBufferToBase64(arrayBuffer);
-            }
-        }
-        return null;
-    }
-
     // 默认图标：角色（用户提供的 sprite-library SVG，适配深浅色）
     function getSpriteLibraryIconSvg() {
         return '<?xml version="1.0" encoding="UTF-8"?>' +
@@ -960,6 +860,14 @@
         } else if (type === 'sound') {
             return '<div class="' + classes + '">' + getAudioIconSvg() + '</div>';
         }
+        return '';
+    }
+
+    // 获取默认类型 SVG（仅 SVG，不包含外层 div，用于卡片缩略图）
+    function getDefaultTypeSvg(type) {
+        if (type === 'sprite') return getSpriteLibraryIconSvg();
+        if (type === 'costume') return getCostumeIconSvg();
+        if (type === 'sound') return getAudioIconSvg();
         return '';
     }
 
@@ -1001,8 +909,12 @@
         document.getElementById('filePreviewType').textContent = getFileTypeLabel(type);
         var thumbEl = document.getElementById('filePreviewThumb');
         thumbEl.innerHTML = '';
-        // 使用默认类型图标
-        thumbEl.innerHTML = getDefaultIconForType(type);
+        // 图片类文件显示实际预览，其他显示默认图标
+        if (type === 'costume' && (mime === 'image/png' || mime === 'image/svg+xml')) {
+            thumbEl.innerHTML = '<img src="data:' + mime + ';base64,' + body + '" alt="' + escapeHtml(name) + '" style="max-width:100%;max-height:100%;object-fit:contain" />';
+        } else {
+            thumbEl.innerHTML = getDefaultIconForType(type);
+        }
         checkUploadForm();
     }
 
