@@ -10,12 +10,15 @@
     <div id="app">
         <!-- 顶部操作栏 -->
         <div class="toolbar">
-            <div class="search-box">
-                <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8"/>
-                    <path d="M21 21l-4.35-4.35"/>
-                </svg>
-                <input type="text" id="searchInput" placeholder="搜索扩展实验广场中的扩展..." />
+            <div class="toolbar-row">
+                <div class="search-box">
+                    <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                    <input type="text" id="searchInput" placeholder="搜索扩展实验广场中的扩展..." />
+                </div>
+                <button id="langToggleBtn" class="lang-btn" title="EN">中</button>
             </div>
             <div class="filter-bar">
                 <button class="filter-btn active" data-filter="all">全部</button>
@@ -140,10 +143,10 @@
     <div id="captchaModal" class="modal-overlay" style="display:none;">
         <div class="modal">
             <div class="modal-header">
-                <h2>人机验证</h2>
+                <h2 id="captchaModalTitle">人机验证</h2>
             </div>
             <div class="modal-body" style="text-align:center;padding:30px;">
-                <p style="margin-bottom:20px;color:var(--text-muted);">请完成验证后继续上传</p>
+                <p id="captchaHint" style="margin-bottom:20px;color:var(--text-muted);">请完成验证后继续上传</p>
                 <div id="captchaContainer"></div>
             </div>
         </div>

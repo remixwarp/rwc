@@ -10,6 +10,163 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
     const EXTENSIONS_PATH = 'extensions';
     const CHANNEL = 'rwc-experiment-plaza';
 
+    // ===== 国际化 i18n =====
+    const I18N = {
+        zh: {
+            'search.placeholder': '搜索扩展实验广场中的扩展...',
+            'loading.text': '正在加载扩展列表...',
+            'empty.default': '暂无扩展',
+            'empty.search': '没有匹配的扩展',
+            'empty.loadFail': '加载失败: {msg}',
+            'unknown.author': '未知作者',
+            'author.prefix': '作者: ',
+            'safety.approved': '经审核之后可以安全使用',
+            'safety.unreviewed': '未知危险',
+            'link.docs': '文档',
+            'link.sample': '示例作品',
+            'toast.loaded': '该扩展已加载',
+            'toast.loading': '正在加载扩展: {name}',
+            'toast.upload.success': '扩展上传成功！',
+            'toast.upload.fail': '上传失败: {msg}',
+            'warning.title': '安全警告',
+            'warning.unreviewed': '该扩展<strong>未经过 RemixWarp 官方团队审核</strong>。',
+            'warning.disclaimer': '使用本扩展造成的一切后果由使用者自负。',
+            'warning.hint': '请确认您信任该扩展的来源，并了解其功能后再决定是否加载。',
+            'warning.confirm': '确认加载',
+            'warning.cancel': '取消',
+            'upload.title': '上传扩展',
+            'upload.name': '扩展名称 *',
+            'upload.author': '作者名称 *',
+            'upload.desc': '扩展描述 *',
+            'upload.jsFile': '扩展JS文件 *',
+            'upload.iconFile': '扩展封面图片 *',
+            'upload.docs': '文档链接',
+            'upload.sample': '示例作品链接',
+            'upload.selectJs': '选择 .js 文件',
+            'upload.selectIcon': '选择图片文件',
+            'upload.submit': '上传扩展',
+            'upload.uploading': '正在上传...',
+            'upload.cancel': '取消',
+            'upload.name.required': '请输入扩展名称',
+            'upload.author.required': '请输入作者名称',
+            'upload.desc.required': '请输入扩展描述',
+            'upload.js.required': '请选择扩展 JS 文件',
+            'upload.icon.required': '请选择扩展封面图片',
+            'filter.all': '全部',
+            'filter.unreviewed': '未审核',
+            'filter.approved': '已审核',
+            'lang.switch': 'EN',
+            'captcha.hint': '请完成验证后继续上传'
+        },
+        en: {
+            'search.placeholder': 'Search extensions in experiment plaza...',
+            'loading.text': 'Loading extension list...',
+            'empty.default': 'No extensions yet',
+            'empty.search': 'No matching extensions',
+            'empty.loadFail': 'Load failed: {msg}',
+            'unknown.author': 'Unknown Author',
+            'author.prefix': 'By: ',
+            'safety.approved': 'Safe to use after review',
+            'safety.unreviewed': 'Unknown risk',
+            'link.docs': 'Docs',
+            'link.sample': 'Sample',
+            'toast.loaded': 'This extension is already loaded',
+            'toast.loading': 'Loading extension: {name}',
+            'toast.upload.success': 'Extension uploaded successfully!',
+            'toast.upload.fail': 'Upload failed: {msg}',
+            'warning.title': 'Security Warning',
+            'warning.unreviewed': 'This extension has <strong>NOT been reviewed</strong> by the RemixWarp team.',
+            'warning.disclaimer': 'Use at your own risk.',
+            'warning.hint': 'Make sure you trust the source and understand its functionality before loading.',
+            'warning.confirm': 'Load Anyway',
+            'warning.cancel': 'Cancel',
+            'upload.title': 'Upload Extension',
+            'upload.name': 'Extension Name *',
+            'upload.author': 'Author Name *',
+            'upload.desc': 'Description *',
+            'upload.jsFile': 'JS File *',
+            'upload.iconFile': 'Cover Image *',
+            'upload.docs': 'Docs URL',
+            'upload.sample': 'Sample Project URL',
+            'upload.selectJs': 'Select .js file',
+            'upload.selectIcon': 'Select image file',
+            'upload.submit': 'Upload Extension',
+            'upload.uploading': 'Uploading...',
+            'upload.cancel': 'Cancel',
+            'upload.name.required': 'Please enter extension name',
+            'upload.author.required': 'Please enter author name',
+            'upload.desc.required': 'Please enter extension description',
+            'upload.js.required': 'Please select a JS file',
+            'upload.icon.required': 'Please select a cover image',
+            'filter.all': 'All',
+            'filter.unreviewed': 'Unreviewed',
+            'filter.approved': 'Approved',
+            'lang.switch': '中',
+            'captcha.hint': 'Please complete the captcha to continue'
+        }
+    };
+
+    let currentLang = localStorage.getItem('rwc:language') || 'zh';
+    // Try to read from parent editor locale
+    try {
+        const parentLocale = localStorage.getItem('tw:language');
+        if (parentLocale && parentLocale.startsWith('en')) {
+            currentLang = 'en';
+        }
+    } catch (e) { /* ignore */ }
+
+    function __(key, vars) {
+        let text = (I18N[currentLang] && I18N[currentLang][key]) || (I18N.zh[key] || key);
+        if (vars) {
+            for (const [k, v] of Object.entries(vars)) {
+                text = text.replace('{' + k + '}', v);
+            }
+        }
+        return text;
+    }
+
+    function setLang(lang) {
+        currentLang = lang;
+        localStorage.setItem('rwc:language', lang);
+        // Update language toggle button
+        const langBtn = document.getElementById('langToggleBtn');
+        if (langBtn) {
+            langBtn.title = __(lang === 'zh' ? 'lang.switch' : 'lang.switch');
+            langBtn.textContent = __(lang === 'zh' ? 'lang.switch' : 'lang.switch');
+        }
+        // Update search placeholder
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) searchInput.placeholder = __('search.placeholder');
+        // Update filter buttons
+        document.querySelectorAll('.filter-btn').forEach(function (btn) {
+            const filter = btn.dataset.filter;
+            if (filter === 'all') btn.textContent = __('filter.all');
+            else if (filter === 'unreviewed') btn.textContent = __('filter.unreviewed');
+            else if (filter === 'approved') btn.textContent = __('filter.approved');
+        });
+        // Update loading text
+        const loadingText = loadingState && loadingState.querySelector('p');
+        if (loadingText) loadingText.textContent = __('loading.text');
+        // Update captcha modal text
+        const captchaTitle = document.getElementById('captchaModalTitle');
+        if (captchaTitle) captchaTitle.textContent = __('warning.title');
+        const captchaHint = document.getElementById('captchaHint');
+        if (captchaHint) captchaHint.textContent = __('captcha.hint');
+        // Rerender
+        renderExtensions();
+    }
+
+    // ===== 监听父窗口语言变化 =====
+    window.addEventListener('message', function (e) {
+        const data = e.data;
+        if (data && data.type === 'editorLocale' && data.data && data.data.locale) {
+            const newLang = data.data.locale.startsWith('en') ? 'en' : 'zh';
+            if (newLang !== currentLang) {
+                setLang(newLang);
+            }
+        }
+    });
+
     // 已加载的扩展集合（由编辑器通知更新）
     const loadedExtensions = new Set();
 
@@ -200,7 +357,7 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
                     extList.push({
                         id: extId,
                         name: metaContent.name || extId,
-                        author: metaContent.author || '未知作者',
+                        author: metaContent.author || __('unknown.author'),
                         description: metaContent.description || '',
                         extensionURL: resolveRawUrl(`${EXTENSIONS_PATH}/${extId}/${metaContent.extensionFile || 'extension.js'}`),
                         extensionId: metaContent.extensionId || extId,
@@ -234,7 +391,7 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
             loadingState.style.display = 'none';
             grid.style.display = 'none';
             emptyState.style.display = 'flex';
-            emptyState.querySelector('p').textContent = '加载失败: ' + err.message;
+            emptyState.querySelector('p').textContent = __('empty.loadFail', {msg: err.message});
         }
     }
 
@@ -258,7 +415,7 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
         if (filtered.length === 0) {
             grid.style.display = 'none';
             emptyState.style.display = 'flex';
-            emptyState.querySelector('p').textContent = searchQuery ? '没有匹配的扩展' : '暂无扩展';
+            emptyState.querySelector('p').textContent = searchQuery ? __('empty.search') : __('empty.default');
             return;
         }
 
@@ -322,7 +479,7 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
 
         const author = document.createElement('div');
         author.className = 'card-author';
-        author.textContent = '作者: ' + ext.author;
+        author.textContent = __('author.prefix') + ext.author;
         body.appendChild(author);
 
         card.appendChild(body);
@@ -334,10 +491,10 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
         const tag = document.createElement('span');
         if (ext.reviewStatus === 'approved') {
             tag.className = 'safety-tag safety-tag--safe';
-            tag.textContent = '经审核之后可以安全使用';
+            tag.textContent = __('safety.approved');
         } else {
             tag.className = 'safety-tag safety-tag--danger';
-            tag.textContent = '未知危险';
+            tag.textContent = __('safety.unreviewed');
         }
         footer.appendChild(tag);
 
@@ -345,7 +502,7 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
         if (ext.uploadDate) {
             const date = document.createElement('span');
             date.style.cssText = 'font-size:0.6875rem;color:var(--text-muted);margin-left:auto;';
-            date.textContent = new Date(ext.uploadDate).toLocaleDateString('zh-CN');
+            date.textContent = new Date(ext.uploadDate).toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : 'en-US');
             footer.appendChild(date);
         }
 
@@ -360,7 +517,7 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
                 a.href = ext.docsURI;
                 a.target = '_blank';
                 a.rel = 'noreferrer';
-                a.textContent = '文档';
+                a.textContent = __('link.docs');
                 a.onclick = function (e) { e.stopPropagation(); };
                 links.appendChild(a);
             }
@@ -369,7 +526,7 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
                 a.href = ext.sampleProject;
                 a.target = '_blank';
                 a.rel = 'noreferrer';
-                a.textContent = '示例作品';
+                a.textContent = __('link.sample');
                 a.onclick = function (e) { e.stopPropagation(); };
                 links.appendChild(a);
             }
@@ -410,7 +567,7 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
     // ===== 扩展点击处理 =====
     function handleExtensionClick(ext) {
         if (loadedExtensions.has(ext.extensionId)) {
-            showToast('该扩展已加载', 'info');
+            showToast(__('toast.loaded'), 'info');
             return;
         }
 
@@ -426,8 +583,18 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
     function showWarning(ext) {
         warningModal.style.display = 'flex';
 
+        // Update warning modal text with current language
+        const warningTitle = warningModal.querySelector('.warning-header h2');
+        const warningBody = warningModal.querySelectorAll('.warning-body p');
+        if (warningTitle) warningTitle.textContent = __('warning.title');
+        if (warningBody[0]) warningBody[0].innerHTML = __('warning.unreviewed');
+        if (warningBody[1]) warningBody[1].textContent = __('warning.disclaimer');
+        if (warningBody[2]) warningBody[2].textContent = __('warning.hint');
+
         const confirmBtn = $('warningConfirmBtn');
         const cancelBtn = $('warningCancelBtn');
+        confirmBtn.textContent = __('warning.confirm');
+        cancelBtn.textContent = __('warning.cancel');
 
         const newConfirm = confirmBtn.cloneNode(true);
         const newCancel = cancelBtn.cloneNode(true);
@@ -452,7 +619,7 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
     }
 
     function loadExtension(ext) {
-        showToast('正在加载扩展: ' + ext.name, 'info');
+        showToast(__('toast.loading', {name: ext.name}), 'info');
         sendToEditor('loadExtension', {
             extensionURL: ext.extensionURL,
             extensionId: ext.extensionId || ext.id,
@@ -520,8 +687,8 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
         // 重置文件输入标签
         document.querySelectorAll('.file-input-label').forEach(el => {
             el.textContent = el.closest('.form-group').querySelector('label').textContent.includes('JS')
-                ? '选择 .js 文件'
-                : '选择图片文件';
+                ? __('upload.selectJs')
+                : __('upload.selectIcon');
             el.style.borderColor = '';
             el.style.color = '';
         });
@@ -604,11 +771,11 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
         const docsURI = $('extDocs').value.trim();
         const sampleProject = $('extSample').value.trim();
 
-        if (!name) { showToast('请输入扩展名称', 'error'); return; }
-        if (!author) { showToast('请输入作者名称', 'error'); return; }
-        if (!description) { showToast('请输入扩展描述', 'error'); return; }
-        if (!selectedJsFile) { showToast('请选择扩展 JS 文件', 'error'); return; }
-        if (!selectedIconFile) { showToast('请选择扩展封面图片', 'error'); return; }
+        if (!name) { showToast(__('upload.name.required'), 'error'); return; }
+        if (!author) { showToast(__('upload.author.required'), 'error'); return; }
+        if (!description) { showToast(__('upload.desc.required'), 'error'); return; }
+        if (!selectedJsFile) { showToast(__('upload.js.required'), 'error'); return; }
+        if (!selectedIconFile) { showToast(__('upload.icon.required'), 'error'); return; }
 
         // 人机验证
         try {
@@ -619,7 +786,7 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
 
         const submitBtn = $('uploadSubmitBtn');
         submitBtn.disabled = true;
-        submitBtn.textContent = '正在上传...';
+        submitBtn.textContent = __('upload.uploading');
 
         try {
             const extId = 'ext_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
@@ -689,16 +856,16 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
             // 6) 更新 main 分支引用
             await githubWrite('/git/refs/heads/main', 'PATCH', { sha: newCommit.sha, force: false });
 
-            showToast('扩展上传成功！', 'success');
+            showToast(__('toast.upload.success'), 'success');
             closeUploadModal();
             // 重新加载扩展列表
             await loadExtensions();
         } catch (err) {
             console.error('Upload failed:', err);
-            showToast('上传失败: ' + err.message, 'error');
+            showToast(__('toast.upload.fail', {msg: err.message}), 'error');
         } finally {
             submitBtn.disabled = false;
-            submitBtn.textContent = '上传扩展';
+            submitBtn.textContent = __('upload.submit');
         }
     }
     window.submitUpload = submitUpload;
@@ -763,6 +930,15 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
 
     function init() {
         notifyReady();
+        // Apply current language
+        setLang(currentLang);
+        // Language toggle button
+        const langBtn = document.getElementById('langToggleBtn');
+        if (langBtn) {
+            langBtn.addEventListener('click', function () {
+                setLang(currentLang === 'zh' ? 'en' : 'zh');
+            });
+        }
         loadExtensions();
     }
 })();

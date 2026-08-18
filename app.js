@@ -8,6 +8,192 @@
     const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
     const CONFIGS_PATH = 'configs';
 
+    // ===== 国际化 i18n =====
+    const I18N = {
+        zh: {
+            'search.placeholder': '搜索配置名称、作者、主题色、描述...',
+            'search.result': '找到 {n} / {total} 个配置',
+            'search.empty.title': '没有匹配的配置',
+            'search.empty.desc': '试试其他关键词',
+            'empty.title': '暂无配置',
+            'empty.desc': '点击右下角的 + 按钮上传你的第一个配置',
+            'unknown.author': '未知作者',
+            'unknown': '未知',
+            'yes': '是',
+            'no': '否',
+            'btn.download': '下载',
+            'btn.apply': '应用',
+            'btn.delete': '删除',
+            'today': '今天',
+            'yesterday': '昨天',
+            'toast.download.start': '开始下载配置',
+            'toast.delete.success': '配置已删除',
+            'toast.delete.fail': '删除失败: {msg}',
+            'toast.upload.blocked': '在编辑器内嵌窗口中无法直接上传配置（跨域限制）。\n\n请转到 https://rw-c.pages.dev/ 进行上传。\n\n点击确定打开链接（新标签页）。',
+            'toast.upload.success': '上传成功！',
+            'toast.upload.fail': '上传失败: {msg}',
+            'toast.apply.success': '配置应用成功！',
+            'toast.apply.fail': '应用失败: {msg}',
+            'toast.captcha.fail': '人机验证失败，请重试',
+            'toast.file.type': '仅支持 .rwc 文件',
+            'toast.copy.success': '已复制',
+            'toast.copy.fail': '复制失败',
+            'toast.load.fail': '加载失败: {msg}',
+            'toast.refresh.success': '刷新成功',
+            'upload.title': '上传配置',
+            'upload.name': '配置名称',
+            'upload.author': '作者',
+            'upload.desc': '描述（可选）',
+            'upload.file': '选择文件',
+            'upload.noFile': '未选择文件',
+            'upload.selectFile': '选择文件',
+            'upload.submit': '上传',
+            'upload.uploading': '正在上传...',
+            'upload.confirm.title': '确认应用配置',
+            'upload.confirm.msg': '确认应用此配置将覆盖当前编辑器设置？',
+            'apply.modal.title': '应用配置',
+            'apply.modal.url': '配置链接',
+            'apply.modal.desc': '将此链接复制到编辑器地址栏可应用此配置。',
+            'delete.confirm': '确认删除此配置？',
+            'theme.toggle': '切换深浅色',
+            'refresh': '刷新',
+            'editor.status.connected': '编辑器已连接',
+            'editor.status.disconnected': '未连接编辑器',
+            'meta.author': '作者',
+            'meta.theme': '主题',
+            'meta.accent': '强调色',
+            'meta.dark': '深色',
+            'meta.description': '描述',
+            'meta.date': '日期',
+            'daysAgo': '天前',
+            'weeksAgo': '周前',
+            'lang.switch': 'EN'
+        },
+        en: {
+            'search.placeholder': 'Search configs by name, author, color, description...',
+            'search.result': 'Found {n} / {total} configs',
+            'search.empty.title': 'No matching configs',
+            'search.empty.desc': 'Try different keywords',
+            'empty.title': 'No configs yet',
+            'empty.desc': 'Click the + button to upload your first config',
+            'unknown.author': 'Unknown Author',
+            'unknown': 'Unknown',
+            'yes': 'Yes',
+            'no': 'No',
+            'btn.download': 'Download',
+            'btn.apply': 'Apply',
+            'btn.delete': 'Delete',
+            'today': 'Today',
+            'yesterday': 'Yesterday',
+            'toast.download.start': 'Downloading config...',
+            'toast.delete.success': 'Config deleted',
+            'toast.delete.fail': 'Delete failed: {msg}',
+            'toast.upload.blocked': 'Cannot upload config from within the editor iframe (cross-origin restrictions).\n\nPlease go to https://rw-c.pages.dev/ to upload.\n\nClick OK to open the link (new tab).',
+            'toast.upload.success': 'Upload successful!',
+            'toast.upload.fail': 'Upload failed: {msg}',
+            'toast.apply.success': 'Config applied successfully!',
+            'toast.apply.fail': 'Apply failed: {msg}',
+            'toast.captcha.fail': 'Captcha verification failed, please retry',
+            'toast.file.type': 'Only .rwc files are supported',
+            'toast.copy.success': 'Copied',
+            'toast.copy.fail': 'Copy failed',
+            'toast.load.fail': 'Load failed: {msg}',
+            'toast.refresh.success': 'Refresh successful',
+            'upload.title': 'Upload Config',
+            'upload.name': 'Config Name',
+            'upload.author': 'Author',
+            'upload.desc': 'Description (optional)',
+            'upload.file': 'Select File',
+            'upload.noFile': 'No file selected',
+            'upload.selectFile': 'Select File',
+            'upload.submit': 'Upload',
+            'upload.uploading': 'Uploading...',
+            'upload.confirm.title': 'Confirm Apply Config',
+            'upload.confirm.msg': 'Applying this config will overwrite current editor settings?',
+            'apply.modal.title': 'Apply Config',
+            'apply.modal.url': 'Config URL',
+            'apply.modal.desc': 'Copy this URL to the editor address bar to apply this config.',
+            'delete.confirm': 'Confirm delete this config?',
+            'theme.toggle': 'Toggle dark/light mode',
+            'refresh': 'Refresh',
+            'editor.status.connected': 'Editor connected',
+            'editor.status.disconnected': 'Editor not connected',
+            'meta.author': 'Author',
+            'meta.theme': 'Theme',
+            'meta.accent': 'Accent',
+            'meta.dark': 'Dark',
+            'meta.description': 'Description',
+            'meta.date': 'Date',
+            'daysAgo': ' days ago',
+            'weeksAgo': ' weeks ago',
+            'lang.switch': '中'
+        }
+    };
+
+    let currentLang = localStorage.getItem('rwc:language') || 'zh';
+    // Try to read from parent editor locale
+    try {
+        const parentLocale = localStorage.getItem('tw:language');
+        if (parentLocale && parentLocale.startsWith('en')) {
+            currentLang = 'en';
+        }
+    } catch (e) { /* ignore */ }
+
+    function __(key, vars) {
+        let text = (I18N[currentLang] && I18N[currentLang][key]) || (I18N.zh[key] || key);
+        if (vars) {
+            for (const [k, v] of Object.entries(vars)) {
+                text = text.replace('{' + k + '}', v);
+            }
+        }
+        return text;
+    }
+
+    function setLang(lang) {
+        currentLang = lang;
+        localStorage.setItem('rwc:language', lang);
+        // Update language toggle button text
+        const langBtn = document.getElementById('langToggleBtn');
+        if (langBtn) {
+            langBtn.title = __(lang === 'zh' ? 'lang.switch' : 'lang.switch');
+            langBtn.textContent = __(lang === 'zh' ? 'lang.switch' : 'lang.switch');
+        }
+        // Rerender UI
+        if (typeof renderConfigs === 'function') renderConfigs();
+        // Update search placeholder
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) searchInput.placeholder = __('search.placeholder');
+        // Update editor status
+        const statusText = document.querySelector('.status-text');
+        if (statusText) {
+            statusText.textContent = window._editorConnected
+                ? __('editor.status.connected')
+                : __('editor.status.disconnected');
+        }
+        // Update theme toggle and refresh tooltips
+        const themeBtn = document.getElementById('themeToggleBtn');
+        if (themeBtn) themeBtn.title = __('theme.toggle');
+        const refreshBtn = document.getElementById('refreshBtn');
+        if (refreshBtn) refreshBtn.title = __('refresh');
+        // Update captcha modal text
+        const captchaTitle = document.getElementById('captchaModalTitle');
+        if (captchaTitle) captchaTitle.textContent = __('upload.confirm.title');
+        // Update upload modal title
+        const uploadModalTitle = document.querySelector('#uploadModal .modal-header h2');
+        if (uploadModalTitle) uploadModalTitle.textContent = __('upload.title');
+    }
+
+    // ===== 监听父窗口语言变化 =====
+    window.addEventListener('message', function (e) {
+        const data = e.data;
+        if (data && data.type === 'editorLocale' && data.data && data.data.locale) {
+            const newLang = data.data.locale.startsWith('en') ? 'en' : 'zh';
+            if (newLang !== currentLang) {
+                setLang(newLang);
+            }
+        }
+    });
+
     // Keys must match the lowercase accent name stored in tw:theme
     // (accent.name.toLowerCase() from scratch-gui/src/lib/themes/accents.js)
     const ACCENT_NAMES = {
@@ -378,7 +564,7 @@
         // Update result count indicator
         if (searchQuery) {
             resultCount.style.display = 'inline';
-            resultCount.textContent = `找到 ${filtered.length} / ${configs.length} 个配置`;
+            resultCount.textContent = __('search.result', {n: filtered.length, total: configs.length});
         } else {
             resultCount.style.display = 'none';
         }
@@ -392,14 +578,12 @@
         if (!filtered.length) {
             grid.style.display = 'none';
             emptyState.style.display = 'flex';
-            emptyState.querySelector('h3').textContent = '没有匹配的配置';
-            emptyState.querySelector('p').textContent = '试试其他关键词';
-            return;
+            emptyState.querySelector('h3').textContent = __('search.empty.title');
+            emptyState.querySelector('p').textContent = __('search.empty.desc');
+        } else {
+            emptyState.querySelector('h3').textContent = __('empty.title');
+            emptyState.querySelector('p').textContent = __('empty.desc');
         }
-
-        // Reset empty state text
-        emptyState.querySelector('h3').textContent = '暂无配置';
-        emptyState.querySelector('p').textContent = '点击右下角的 + 按钮上传你的第一个配置';
 
         emptyState.style.display = 'none';
         grid.style.display = 'grid';
@@ -415,32 +599,32 @@
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                         <circle cx="12" cy="7" r="4"/>
                     </svg>
-                    <span>${escapeHtml(c.author || '未知作者')}</span>
+                    <span>${escapeHtml(c.author || __('unknown.author'))}</span>
                 </div>
                 <div class="config-meta">
                     <div class="config-meta-item">
-                        <span class="meta-label">主题</span>
+                        <span class="meta-label">${__('meta.theme')}</span>
                         ${c.theme ? `<span class="theme-badge ${c.isDark ? 'dark' : 'light'}">
-                            ${escapeHtml(THEME_NAMES[c.theme.gui] || c.theme.gui || '未知')}
+                            ${escapeHtml(THEME_NAMES[c.theme.gui] || c.theme.gui || __('unknown'))}
                         </span>` : '<span class="meta-value">-</span>'}
                     </div>
                     <div class="config-meta-item">
-                        <span class="meta-label">主题色</span>
+                        <span class="meta-label">${__('meta.accent')}</span>
                         ${c.accent ? `<div class="accent-display">
                             <span class="accent-color" style="background: ${escapeHtml(c.accent.color || '#ccc')}"></span>
                             <span class="meta-value">${escapeHtml(ACCENT_NAMES[c.accent.name] || c.accent.name || '-')}</span>
                         </div>` : '<span class="meta-value">-</span>'}
                     </div>
                     <div class="config-meta-item">
-                        <span class="meta-label">深色</span>
-                        <span class="meta-value">${c.isDark ? '是' : '否'}</span>
+                        <span class="meta-label">${__('meta.dark')}</span>
+                        <span class="meta-value">${c.isDark ? __('yes') : __('no')}</span>
                     </div>
                 </div>
                 <div class="config-desc">${escapeHtml(c.description)}</div>
                 <div class="config-actions">
-                    <button class="btn btn-secondary" onclick="window._rwcDownloadConfig('${c.id}')">下载</button>
-                    <button class="btn btn-primary" onclick="window._rwcApplyConfig('${c.id}')">应用</button>
-                    <button class="btn btn-danger" onclick="window._rwcDeleteConfig('${c.id}')">删除</button>
+                    <button class="btn btn-secondary" onclick="window._rwcDownloadConfig('${c.id}')">${__('btn.download')}</button>
+                    <button class="btn btn-primary" onclick="window._rwcApplyConfig('${c.id}')">${__('btn.apply')}</button>
+                    <button class="btn btn-danger" onclick="window._rwcDeleteConfig('${c.id}')">${__('btn.delete')}</button>
                 </div>
             </div>
         `).join('');
@@ -460,11 +644,11 @@
             const now = new Date();
             const diff = now - d;
             const days = Math.floor(diff / 86400000);
-            if (days === 0) return '今天';
-            if (days === 1) return '昨天';
-            if (days < 7) return `${days}天前`;
-            if (days < 30) return `${Math.floor(days / 7)}周前`;
-            return d.toLocaleDateString('zh-CN');
+            if (days === 0) return __('today');
+            if (days === 1) return __('yesterday');
+            if (days < 7) return `${days}${__('daysAgo')}`;
+            if (days < 30) return `${Math.floor(days / 7)}${__('weeksAgo')}`;
+            return d.toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : 'en-US');
         } catch {
             return '';
         }
@@ -485,7 +669,7 @@
         a.click();
         document.body.removeChild(a);
 
-        showToast('开始下载配置', 'success');
+        showToast(__('toast.download.start'), 'success');
     };
 
     window._rwcApplyConfig = function (id) {
@@ -1082,6 +1266,14 @@
         setupSearch();
         setupUploadFlow();
         setupApplyFlow();
+
+        // Language toggle button
+        const langBtn = document.getElementById('langToggleBtn');
+        if (langBtn) {
+            langBtn.addEventListener('click', function () {
+                setLang(currentLang === 'zh' ? 'en' : 'zh');
+            });
+        }
 
         document.getElementById('refreshBtn').addEventListener('click', () => {
             loadConfigs();
