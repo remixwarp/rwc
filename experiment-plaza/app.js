@@ -56,7 +56,8 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
             'filter.unreviewed': '未审核',
             'filter.approved': '已审核',
             'lang.switch': 'EN',
-            'captcha.hint': '请完成验证后继续上传'
+            'captcha.hint': '请完成验证后继续上传',
+            'theme.toggle': '切换深浅色'
         },
         en: {
             'search.placeholder': 'Search extensions in experiment plaza...',
@@ -102,7 +103,8 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
             'filter.unreviewed': 'Unreviewed',
             'filter.approved': 'Approved',
             'lang.switch': '中',
-            'captcha.hint': 'Please complete the captcha to continue'
+            'captcha.hint': 'Please complete the captcha to continue',
+            'theme.toggle': 'Toggle dark/light mode'
         }
     };
 
@@ -152,8 +154,67 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
         if (captchaTitle) captchaTitle.textContent = __('warning.title');
         const captchaHint = document.getElementById('captchaHint');
         if (captchaHint) captchaHint.textContent = __('captcha.hint');
+        // Update theme toggle title
+        const themeBtn = document.getElementById('themeToggleBtn');
+        if (themeBtn) themeBtn.title = __('theme.toggle');
         // Rerender
         renderExtensions();
+    }
+
+    // ===== 主题切换 =====
+    function initThemeToggle() {
+        const btn = document.getElementById('themeToggleBtn');
+        if (!btn) return;
+
+        // 读取用户保存的主题或编辑器主题
+        var savedTheme = null;
+        try { savedTheme = localStorage.getItem('rwc:theme'); } catch (e) { /* ignore */ }
+
+        // 读取编辑器主题（通过 localStorage 桥接）
+        var editorTheme = null;
+        try {
+            var twTheme = localStorage.getItem('tw:theme');
+            if (twTheme === 'dark' || twTheme === 'deepdark' || (twTheme && twTheme.toLowerCase().includes('dark'))) {
+                editorTheme = 'dark';
+            } else if (twTheme) {
+                editorTheme = 'light';
+            }
+        } catch (e) { /* ignore */ }
+
+        if (editorTheme) {
+            applyTheme(editorTheme);
+        } else if (savedTheme) {
+            applyTheme(savedTheme);
+        } else {
+            applyTheme('auto');
+        }
+
+        btn.addEventListener('click', function () {
+            const current = document.documentElement.getAttribute('data-theme');
+            var next;
+            if (current === 'dark') next = 'light';
+            else if (current === 'light') next = 'dark';
+            else next = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark';
+            applyTheme(next);
+            try { localStorage.setItem('rwc:theme', next); } catch (e) { /* ignore */ }
+        });
+
+        // 监听编辑器主题变化（通过 postMessage）
+        window.addEventListener('message', function (e) {
+            if (e.data && e.data.type === 'editorThemeInfo' && e.data.data && e.data.data.theme) {
+                var isDark = e.data.data.theme.isDark;
+                applyTheme(isDark ? 'dark' : 'light');
+            }
+        });
+    }
+
+    function applyTheme(theme) {
+        if (theme === 'auto') {
+            var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+        } else {
+            document.documentElement.setAttribute('data-theme', theme);
+        }
     }
 
     // ===== 监听父窗口语言变化 =====
@@ -930,6 +991,8 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
 
     function init() {
         notifyReady();
+        // Initialize theme toggle
+        initThemeToggle();
         // Apply current language
         setLang(currentLang);
         // Language toggle button

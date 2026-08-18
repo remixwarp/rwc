@@ -199,6 +199,10 @@
         _updateThemeDetection() {
             if (!this.theme) return;
 
+            // 同步更新页面主题
+            var isDark = this.theme.isDark;
+            document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+
             const themeEl = document.getElementById('detectedTheme');
             const isDarkEl = document.getElementById('isDark');
             const accentColorEl = document.getElementById('accentColor');

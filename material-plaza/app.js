@@ -61,8 +61,13 @@
             'capture.hint': '请完成验证后继续上传',
             'remove': '移除',
             'editor.hint': '上传素材请转到独立页面操作',
-            'editor.hintLink': '上传素材请转到 {url}',
-            'editor.uploadDisabled': '在编辑器内无法上传素材'
+            'editor.hintLink': '上传素材请转到独立页面',
+            'editor.uploadDisabled': '在编辑器内无法上传素材',
+            'upload.cover': '封面图',
+            'upload.coverOptional': '(选填)',
+            'upload.coverHint': '选择封面图片（可选）',
+            'captcha.title': '人机验证',
+            'theme.toggle': '切换深浅色'
         },
         en: {
             'title': 'Material Plaza',
@@ -112,8 +117,13 @@
             'capture.hint': 'Please complete the captcha to continue',
             'remove': 'Remove',
             'editor.hint': 'Please open in standalone page to upload materials',
-            'editor.hintLink': 'Please go to {url} to upload materials',
-            'editor.uploadDisabled': 'Upload is disabled inside the editor'
+            'editor.hintLink': 'Please open in standalone page to upload',
+            'editor.uploadDisabled': 'Upload is disabled inside the editor',
+            'upload.cover': 'Cover Image',
+            'upload.coverOptional': '(optional)',
+            'upload.coverHint': 'Select cover image (optional)',
+            'captcha.title': 'Verification',
+            'theme.toggle': 'Toggle dark/light mode'
         }
     };
 
@@ -210,10 +220,26 @@
         const refreshBtn = document.getElementById('refreshBtn');
         if (refreshBtn) refreshBtn.title = __('toast.refresh');
         // Editor hint
-        const editorHintText = document.getElementById('editorHintText');
-        if (editorHintText) {
-            editorHintText.textContent = __('editor.hintLink', {url: 'https://rw-c.pages.dev/material-plaza/'});
+        const editorHintLink = document.getElementById('editorHintLink');
+        if (editorHintLink) {
+            editorHintLink.textContent = __('editor.hintLink');
         }
+        // Theme toggle
+        const themeBtn = document.getElementById('themeToggleBtn');
+        if (themeBtn) themeBtn.title = __('theme.toggle');
+        // Captcha modal
+        const captchaTitle = document.getElementById('captchaModalTitle');
+        if (captchaTitle) captchaTitle.textContent = __('captcha.title');
+        const captchaHint = document.getElementById('captchaHint');
+        if (captchaHint) captchaHint.textContent = __('capture.hint');
+        // Cover image
+        const coverLabel = document.querySelector('#uploadModal .form-group:nth-child(5) label');
+        if (coverLabel) {
+            const coverText = coverLabel.querySelector('.cover-label-text');
+            if (coverText) coverText.textContent = __('upload.cover');
+        }
+        const coverHint = document.querySelector('#coverUploadPlaceholder p');
+        if (coverHint) coverHint.textContent = __('upload.coverHint');
     }
 
     // ===== DOM 引用 =====
@@ -230,6 +256,7 @@
     let currentFilter = 'all';
     let searchQuery = '';
     let selectedFileData = null; // 选择的文件数据
+    let selectedCoverData = null; // 选择的封面图数据（base64 data URL）
 
     // ===== Toast 通知 =====
     let toastTimer = null;
@@ -713,12 +740,16 @@
     // ===== 上传弹窗 =====
     function openUploadModal() {
         selectedFileData = null;
+        selectedCoverData = null;
         document.getElementById('authorInput').value = '';
         document.getElementById('titleInput').value = '';
         document.getElementById('descInput').value = '';
         document.getElementById('fileInput').value = '';
+        document.getElementById('coverInput').value = '';
         document.getElementById('filePreview').style.display = 'none';
         document.getElementById('fileUploadPlaceholder').style.display = 'flex';
+        document.getElementById('coverPreview').style.display = 'none';
+        document.getElementById('coverUploadPlaceholder').style.display = 'flex';
         document.getElementById('uploadSubmitBtn').disabled = true;
         uploadModal.style.display = 'flex';
     }
@@ -895,11 +926,41 @@
         return null;
     }
 
+    // 默认图标：角色（用户提供的 sprite-library SVG，适配深浅色）
+    function getSpriteLibraryIconSvg() {
+        return '<?xml version="1.0" encoding="UTF-8"?>' +
+            '<svg width="48" height="48" viewBox="0 0 20 20" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="currentColor">' +
+            '<title>sprite-library</title>' +
+            '<g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">' +
+            '<g id="sprite-library" fill="currentColor">' +
+            '<path d="M18.5,2.5 L19.25,2.5 C19.6642136,2.5 20,2.83578644 20,3.25 C20,3.66421356 19.6642136,4 19.25,4 L18.5,4 L18.5,4.75 C18.5,5.16421356 18.1642136,5.5 17.75,5.5 C17.3357864,5.5 17,5.16421356 17,4.75 L17,4 L16.25,4 C15.8357864,4 15.5,3.66421356 15.5,3.25 C15.5,2.83578644 15.8357864,2.5 16.25,2.5 L17,2.5 L17,1.75 C17,1.33578644 17.3357864,1 17.75,1 C18.1642136,1 18.5,1.33578644 18.5,1.75 L18.5,2.5 Z M15.9214311,12.3870691 C15.9214311,15.6404905 13.2729235,17 10.0195022,17 C6.767318,17 4.13241787,15.6404905 4.13241787,12.3870691 C4.13241787,11.5829915 4.26725548,10.9026183 4.52827141,10.3335788 L4.42930802,5.63281784 C4.4169376,5.11326006 4.99834749,4.81636989 5.41894188,5.12563048 L7.93013778,7.01830528 C8.51154766,6.70904469 9.22903221,6.57297003 10.0195022,6.57297003 C10.8124464,6.57297003 11.5423013,6.70904469 12.1237112,7.01830528 L14.6349071,5.12563048 C15.0431311,4.81636989 15.624541,5.11326006 15.624541,5.63281784 L15.5255776,10.3335788 C15.7853565,10.9026183 15.9214311,11.5829915 15.9214311,12.3870691 Z M12.5062047,14.4154474 C12.6806277,14.2311281 12.6546498,13.9330009 12.4579601,13.759815 C12.2724037,13.5989995 11.9742765,13.6237403 11.8023276,13.8229041 C11.6650159,13.9824826 11.4670892,14.0690756 11.256792,14.0690756 C10.8609384,14.0690756 10.526937,13.7474445 10.526937,13.3392206 L10.526937,12.6588473 C11.2444215,12.4609205 11.7887202,11.8560068 11.7887202,11.4589162 C11.7887202,10.9640993 11.0093835,10.9640993 10.0692313,10.9640993 C9.11794581,10.9640993 8.35097957,10.9640993 8.35097957,11.4589162 C8.35097957,11.8560068 8.87053734,12.4609205 9.59915527,12.6464769 L9.59915527,13.3392206 C9.59915527,13.7474445 9.27876131,14.0690756 8.88167073,14.0690756 C8.66024015,14.0690756 8.46107634,13.9824826 8.32500168,13.8229041 C8.16418618,13.6237403 7.86729603,13.5989995 7.66936926,13.759815 C7.47267953,13.9330009 7.45907206,14.2311281 7.62112461,14.4154474 C7.93038519,14.7865601 8.3868538,14.9968573 8.88167073,14.9968573 C9.33937638,14.9968573 9.75997077,14.8001676 10.0692313,14.490907 C10.3673585,14.8001676 10.7867159,14.9968573 11.256792,14.9968573 C11.7404755,14.9968573 12.1969441,14.7865601 12.5062047,14.4154474 Z" id="Combined-Shape"/>' +
+            '</g></g></g>' +
+            '</svg>';
+    }
+
+    // 造型默认图标（和角色使用同一个 sprite-library SVG，颜色通过 CSS 适配主题）
+    function getCostumeIconSvg() {
+        return getSpriteLibraryIconSvg();
+    }
+
     // 音频图标 SVG（适配深色/浅色模式，使用 currentColor）
     function getAudioIconSvg() {
         return '<svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">' +
             '<path d="M12.4785,12.6667 C12.3145,12.6667 12.1459,12.6272 11.9926,12.5441 C11.5374,12.296 11.3856,11.7562 11.6554,11.3376 C12.1689,10.5371 12.1689,9.54492 11.6554,8.74581 C11.3856,8.32582 11.5374,7.78603 11.9926,7.53798 C12.4524,7.29275 13.038,7.43087 13.3047,7.84804 C14.1738,9.20103 14.1738,10.881 13.3047,12.234 C13.1269,12.513 12.8065,12.6667 12.4785,12.6667 Z M15.3807,13.8333 C15.2409,13.8333 15.0959,13.7963 14.9665,13.7182 C14.5785,13.4853 14.4492,12.9785 14.6791,12.5855 C15.5949,11.016 15.5949,9.06549 14.6791,7.49738 C14.4492,7.10436 14.5785,6.59622 14.9665,6.36332 C15.3559,6.13439 15.8549,6.26275 16.0848,6.65444 C17.3051,8.74261 17.3051,11.3389 16.0848,13.4271 C15.932,13.6891 15.6603,13.8333 15.3807,13.8333 Z M10.3043,5.62502 L10.3043,13.8737 C10.3043,14.8509 9.1097,15.3625 8.36478,14.7038 L6.7566,13.2798 C6.18712,12.7763 5.44499,12.4969 4.67362,12.4969 L4.39237,12.4969 C3.62378,12.4969 3,11.8935 3,11.1471 L3,8.36647 C3,7.62138 3.62378,7.01666 4.39237,7.01666 L4.65831,7.01666 C5.42968,7.01666 6.17181,6.73726 6.74129,6.23378 L8.36478,4.79624 C9.1097,4.13753 10.3043,4.64911 10.3043,5.62502 Z"/>' +
             '</svg>';
+    }
+
+    // 获取默认图标 HTML（根据类型）
+    function getDefaultIconForType(type) {
+        var classes = 'default-type-icon ' + type + '-icon';
+        if (type === 'sprite') {
+            return '<div class="' + classes + '">' + getSpriteLibraryIconSvg() + '</div>';
+        } else if (type === 'costume') {
+            return '<div class="' + classes + '">' + getCostumeIconSvg() + '</div>';
+        } else if (type === 'sound') {
+            return '<div class="' + classes + '">' + getAudioIconSvg() + '</div>';
+        }
+        return '';
     }
 
     // 处理选择的文件
@@ -914,30 +975,24 @@
 
         var name = file.name.replace(/\.[^/.]+$/, ''); // 去掉扩展名
         var mime = getFileMime(file.name);
-        var ext = file.name.split('.').pop().toLowerCase();
 
-        // 都读取为 ArrayBuffer 以便提取缩略图
+        // 读取为 ArrayBuffer
         var reader = new FileReader();
         reader.onload = function (e) {
-            var arrayBuffer = e.target.result;
-            var body = arrayBufferToBase64(arrayBuffer);
-
-            // 提取缩略图
-            var thumbnail = extractFileThumbnail(file, type, arrayBuffer);
-
-            showFilePreview(name, type, body, mime, thumbnail, arrayBuffer);
+            var body = arrayBufferToBase64(e.target.result);
+            showFilePreview(name, type, body, mime);
         };
         reader.readAsArrayBuffer(file);
     }
 
-    function showFilePreview(name, type, body, mime, thumbnail, arrayBuffer) {
+    function showFilePreview(name, type, body, mime) {
         selectedFileData = {
             name: name,
             type: type,
             mime: mime,
             body: body,
             bodyMD5: '',
-            thumbnail: thumbnail || ''
+            thumbnail: '' // 缩略图由封面图决定，此处不提取
         };
 
         document.getElementById('fileUploadPlaceholder').style.display = 'none';
@@ -946,29 +1001,8 @@
         document.getElementById('filePreviewType').textContent = getFileTypeLabel(type);
         var thumbEl = document.getElementById('filePreviewThumb');
         thumbEl.innerHTML = '';
-
-        if (thumbnail) {
-            if (type === 'sound') {
-                // 音频图标 SVG（用 currentColor 适配深色/浅色模式）
-                thumbEl.innerHTML = thumbnail;
-                var svg = thumbEl.querySelector('svg');
-                if (svg) {
-                    svg.style.width = '32px';
-                    svg.style.height = '32px';
-                    svg.style.color = 'var(--text-muted)';
-                }
-            } else {
-                // 图片缩略图
-                var img = document.createElement('img');
-                img.src = thumbnail;
-                img.alt = name;
-                thumbEl.appendChild(img);
-            }
-        } else {
-            // 无缩略图时显示类型图标
-            thumbEl.textContent = getTypeIcon(type);
-            thumbEl.style.fontSize = '24px';
-        }
+        // 使用默认类型图标
+        thumbEl.innerHTML = getDefaultIconForType(type);
         checkUploadForm();
     }
 
@@ -989,9 +1023,15 @@
             return;
         }
 
+        // 先完成人机验证
+        await verifyCaptcha();
+
         var submitBtn = document.getElementById('uploadSubmitBtn');
         submitBtn.disabled = true;
         submitBtn.textContent = __('upload.uploading');
+
+        // 确定缩略图：如果用户上传了封面图则用封面图，否则用默认类型图标
+        var thumbnail = selectedCoverData || '';
 
         try {
             await uploadMaterial({
@@ -1003,7 +1043,7 @@
                 mime: selectedFileData.mime || 'application/octet-stream',
                 body: selectedFileData.body,
                 bodyMD5: selectedFileData.bodyMD5 || '',
-                thumbnail: selectedFileData.thumbnail || ''
+                thumbnail: thumbnail
             });
             showToast(__('toast.upload.success'), 'success');
             closeUploadModal();
@@ -1020,12 +1060,154 @@
         }
     }
 
+    // ===== 人机验证 =====
+    function verifyCaptcha() {
+        return new Promise(function (resolve, reject) {
+            const captchaModal = $('captchaModal');
+            const container = $('captchaContainer');
+
+            // 清空容器并创建新的 CAPTCHA 组件
+            container.innerHTML = '';
+
+            // 检查 window.capWidget 是否已存在，如果存在则复用
+            let capWidget = window.capWidget;
+            if (!capWidget || capWidget.parentNode !== container) {
+                capWidget = document.createElement('div');
+                capWidget.className = 'cap-widget';
+                capWidget.setAttribute('data-cap-api-endpoint', 'https://captcha.gurl.eu.org/api/');
+                capWidget.setAttribute('data-cap-lang', currentLang === 'zh' ? 'zh' : 'en');
+                container.appendChild(capWidget);
+                window.capWidget = capWidget;
+            }
+
+            // 验证成功回调
+            function onSuccess(token) {
+                fetch('https://captcha.gurl.eu.org/api/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 'cap-token': token })
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.success) {
+                        captchaModal.style.display = 'none';
+                        resolve();
+                    } else {
+                        showToast(__('capture.hint'), 'error');
+                        resetCaptcha();
+                        reject(new Error('验证失败'));
+                    }
+                })
+                .catch(function () {
+                    showToast(__('capture.hint'), 'error');
+                    resetCaptcha();
+                    reject(new Error('验证请求失败'));
+                });
+            }
+
+            // 重置 CAPTCHA
+            function resetCaptcha() {
+                if (window.capWidget) {
+                    var newWidget = document.createElement('div');
+                    newWidget.className = 'cap-widget';
+                    newWidget.setAttribute('data-cap-api-endpoint', 'https://captcha.gurl.eu.org/api/');
+                    newWidget.setAttribute('data-cap-lang', currentLang === 'zh' ? 'zh' : 'en');
+                    container.innerHTML = '';
+                    container.appendChild(newWidget);
+                    window.capWidget = newWidget;
+                }
+            }
+
+            // 显示弹窗
+            captchaModal.style.display = 'flex';
+
+            // 点击遮罩层关闭
+            captchaModal.addEventListener('click', function (e) {
+                if (e.target === captchaModal) {
+                    captchaModal.style.display = 'none';
+                    resetCaptcha();
+                    reject(new Error('用户取消验证'));
+                }
+            });
+
+            // 监听验证成功事件
+            var onMessage = function (e) {
+                if (e.data && e.data.type === 'cap-success') {
+                    onSuccess(e.data.token);
+                }
+            };
+            window.addEventListener('message', onMessage);
+
+            // 清理监听（超时或完成后）
+            setTimeout(function () {
+                window.removeEventListener('message', onMessage);
+            }, 60000);
+        });
+    }
+
+    // ===== 主题切换 =====
+    function initThemeToggle() {
+        const btn = document.getElementById('themeToggleBtn');
+        const icon = document.getElementById('themeToggleIcon');
+
+        // 读取用户保存的主题或编辑器主题
+        let savedTheme = null;
+        try {
+            savedTheme = localStorage.getItem('rwc:theme');
+        } catch (e) { /* ignore */ }
+
+        // 如果有编辑器桥接，读取编辑器主题
+        var editorTheme = null;
+        if (window.MaterialPlazaBridge && window.MaterialPlazaBridge.getCurrentTheme) {
+            editorTheme = window.MaterialPlazaBridge.getCurrentTheme();
+        }
+
+        if (editorTheme) {
+            applyTheme(editorTheme === 'dark' ? 'dark' : 'light');
+        } else if (savedTheme) {
+            applyTheme(savedTheme);
+        } else {
+            // 默认跟随系统
+            applyTheme('auto');
+        }
+
+        btn.addEventListener('click', function () {
+            const current = document.documentElement.getAttribute('data-theme');
+            let next;
+            if (current === 'dark') next = 'light';
+            else if (current === 'light') next = 'dark';
+            else next = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark';
+            applyTheme(next);
+            try { localStorage.setItem('rwc:theme', next); } catch (e) { /* ignore */ }
+        });
+
+        // 监听编辑器主题变化
+        if (window.MaterialPlazaBridge && window.MaterialPlazaBridge.onThemeChange) {
+            window.MaterialPlazaBridge.onThemeChange(function (isDark) {
+                applyTheme(isDark ? 'dark' : 'light');
+            });
+        }
+    }
+
+    function applyTheme(theme) {
+        const icon = document.getElementById('themeToggleIcon');
+        if (theme === 'auto') {
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+        } else {
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+    }
+
     // ===== 事件绑定 =====
     function init() {
         // 通知编辑器就绪
         if (window.MaterialPlazaBridge) {
             window.MaterialPlazaBridge.notifyReady();
         }
+
+        // 初始化主题切换
+        initThemeToggle();
 
         // 应用当前语言
         setLang(currentLang);
@@ -1054,7 +1236,6 @@
             // 在编辑器内：隐藏上传按钮，显示提示条
             addBtn.style.display = 'none';
             document.getElementById('editorHint').style.display = 'flex';
-            document.getElementById('editorHintText').textContent = __('editor.hintLink', {url: 'https://rw-c.pages.dev/material-plaza/'});
         } else {
             addBtn.addEventListener('click', openUploadModal);
         }
@@ -1091,6 +1272,33 @@
         document.getElementById('fileUploadZone').addEventListener('click', function (e) {
             if (e.target.id !== 'filePreviewRemove' && !e.target.closest('.file-preview')) {
                 document.getElementById('fileInput').click();
+            }
+        });
+
+        // 封面图上传
+        document.getElementById('coverPreviewRemove').addEventListener('click', function () {
+            selectedCoverData = null;
+            document.getElementById('coverInput').value = '';
+            document.getElementById('coverPreview').style.display = 'none';
+            document.getElementById('coverUploadPlaceholder').style.display = 'flex';
+        });
+        document.getElementById('coverInput').addEventListener('change', function () {
+            if (this.files && this.files.length > 0) {
+                var file = this.files[0];
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    selectedCoverData = e.target.result;
+                    document.getElementById('coverUploadPlaceholder').style.display = 'none';
+                    document.getElementById('coverPreview').style.display = 'flex';
+                    document.getElementById('coverPreviewName').textContent = file.name;
+                    document.getElementById('coverPreviewThumb').innerHTML = '<img src="' + e.target.result + '" alt="' + file.name + '" />';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        document.getElementById('coverUploadZone').addEventListener('click', function (e) {
+            if (e.target.id !== 'coverPreviewRemove' && !e.target.closest('.file-preview')) {
+                document.getElementById('coverInput').click();
             }
         });
 

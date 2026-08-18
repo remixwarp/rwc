@@ -1235,7 +1235,20 @@
         const btn = document.getElementById('themeToggleBtn');
         const icon = document.getElementById('themeToggleIcon');
 
-        const saved = localStorage.getItem('rwc:theme') || 'auto';
+        // 读取编辑器主题（优先）
+        var editorTheme = null;
+        if (window.RWCEditorBridge) {
+            if (window.RWCEditorBridge.theme && window.RWCEditorBridge.theme.isDark !== undefined) {
+                editorTheme = window.RWCEditorBridge.theme.isDark ? 'dark' : 'light';
+            }
+        }
+
+        var saved = null;
+        if (editorTheme) {
+            saved = editorTheme;
+        } else {
+            saved = localStorage.getItem('rwc:theme') || 'auto';
+        }
         applyTheme(saved);
 
         btn.addEventListener('click', () => {

@@ -101,33 +101,85 @@
         }
 
         switch (data.type) {
-            case 'capturedMaterial':
-                // 编辑器捕获了素材，发送到素材广场
-                if (listeners.onCapturedMaterial) {
-                    listeners.onCapturedMaterial(data.data);
-                }
-                break;
             case 'editorLocale':
                 // 编辑器语言变化
                 if (listeners.onLocaleChange) {
                     listeners.onLocaleChange(data.data && data.data.locale);
                 }
                 break;
+            case 'editorThemeInfo':
+                // 编辑器主题信息
+                if (data.data && data.data.theme) {
+                    var isDark = data.data.theme.isDark;
+                    window.MaterialPlazaBridge._editorTheme = isDark ? 'dark' : 'light';
+                    // 触发主题变化回调
+                    if (listeners.onThemeChange) {
+                        listeners.onThemeChange(isDark);
+                    }
+                }
+                break;
         }
     });
 
+    // 获取当前编辑器主题
+    function getCurrentTheme() {
+        try {
+            // 尝试从编辑器桥接读取
+            var bridge = window.MaterialPlazaBridge;
+            if (bridge && bridge._editorTheme) {
+                return bridge._editorTheme;
+            }
+            // 回退到 localStorage
+            var theme = localStorage.getItem('tw:theme');
+            if (theme === 'dark' || theme === 'deepdark') return 'dark';
+            // 检查 tw:theme 的具体值
+            // 对于 pixel themes 等，检查是否包含 dark
+            if (theme && theme.toLowerCase().includes('dark')) return 'dark';
+            return 'light';
+        } catch (e) {
+            return 'light';
+        }
+    }
+
+    // 监听编辑器主题变化
+    function onThemeChange(callback) {
+        // 监听 postMessage 主题变化事件
+        function handler(e) {
+            if (e.data && e.data.channel === CHANNEL && e.data.type === 'themeChange') {
+                callback(e.data.data && e.data.data.isDark ? true : false);
+            }
+        }
+        window.addEventListener('message', handler);
+        // 同时也监听 localStorage 变化（兼容独立页面）
+        try {
+            var origSetItem = localStorage.setItem;
+            var _origSetItem = localStorage.setItem;
+            localStorage.setItem = function (key, value) {
+                _origSetItem.call(localStorage, key, value);
+                if (key === 'tw:theme') {
+                    var isDark = value === 'dark' || value === 'deepdark' ||
+                        (value && value.toLowerCase().includes('dark'));
+                    callback(isDark);
+                }
+            };
+        } catch (e) { /* ignore */ }
+        return function () {
+            window.removeEventListener('message', handler);
+        };
+    }
+
     window.MaterialPlazaBridge = {
+        _editorTheme: null,
         notifyReady: notifyReady,
-        requestCapture: requestCapture,
-        cancelCapture: cancelCapture,
         requestApplyMaterial: requestApplyMaterial,
         notifyUploadComplete: notifyUploadComplete,
         forwardGithubRead: forwardGithubRead,
-        onCapturedMaterial: function (callback) {
-            listeners.onCapturedMaterial = callback;
-        },
         onLocaleChange: function (callback) {
             listeners.onLocaleChange = callback;
-        }
+        },
+        onThemeChange: function (callback) {
+            listeners.onThemeChange = callback;
+        },
+        getCurrentTheme: getCurrentTheme
     };
 })();

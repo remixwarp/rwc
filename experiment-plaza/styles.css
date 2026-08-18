@@ -37,7 +37,23 @@ body {
     overflow: hidden;
 }
 
-/* 暗色模式 */
+/* 手动切换深色模式 */
+[data-theme="dark"] {
+    --bg-primary: #1e1e1e;
+    --bg-card: #2d2d2d;
+    --bg-modal: #2d2d2d;
+    --text-primary: #e0e0e0;
+    --text-secondary: #aaaaaa;
+    --text-muted: #777777;
+    --border-color: #404040;
+    --border-hover: #606060;
+    --warning-bg: #3e2723;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.2);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+/* 系统暗色模式（仅当未手动设置时生效） */
 @media (prefers-color-scheme: dark) {
     :root {
         --bg-primary: #1e1e1e;
@@ -103,6 +119,30 @@ body {
 }
 
 .lang-btn:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    background: color-mix(in srgb, var(--accent-color) 8%, var(--bg-card));
+}
+
+.theme-btn {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font-family);
+    flex-shrink: 0;
+    transition: all 0.15s;
+}
+
+.theme-btn:hover {
     border-color: var(--accent-color);
     color: var(--accent-color);
     background: color-mix(in srgb, var(--accent-color) 8%, var(--bg-card));
