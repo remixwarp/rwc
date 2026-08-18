@@ -84,23 +84,24 @@
                     <textarea id="descInput" class="form-textarea" placeholder="输入素材描述" rows="3"></textarea>
                 </div>
                 <div class="form-group">
-                    <label>拖拽素材到下方区域</label>
-                    <div id="dropZone" class="drop-zone">
-                        <div class="drop-zone-placeholder">
+                    <label>选择素材文件 *</label>
+                    <div id="fileUploadZone" class="file-upload-zone">
+                        <input type="file" id="fileInput" class="file-input" accept=".sprite3,.svg,.png,.wav,.mp3" />
+                        <div class="file-upload-placeholder" id="fileUploadPlaceholder">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/>
                             </svg>
-                            <p>从编辑器拖拽素材到此处</p>
+                            <p>点击选择文件</p>
+                            <span class="file-upload-hint">支持 .sprite3(角色) .svg/.png(造型) .wav/.mp3(音频)</span>
                         </div>
-                        <div id="dropPreview" class="drop-preview" style="display:none">
-                            <div class="drop-preview-thumb" id="dropPreviewThumb"></div>
-                            <div class="drop-preview-info">
-                                <span class="drop-preview-name" id="dropPreviewName"></span>
-                                <span class="drop-preview-type" id="dropPreviewType"></span>
+                        <div id="filePreview" class="file-preview" style="display:none">
+                            <div class="file-preview-thumb" id="filePreviewThumb"></div>
+                            <div class="file-preview-info">
+                                <span class="file-preview-name" id="filePreviewName"></span>
+                                <span class="file-preview-type" id="filePreviewType"></span>
                             </div>
-                            <button class="drop-preview-remove" id="dropPreviewRemove">&times;</button>
+                            <button class="file-preview-remove" id="filePreviewRemove">&times;</button>
                         </div>
-                        <div id="dropZoneStatus" class="drop-zone-status"></div>
                     </div>
                 </div>
                 <div class="form-actions">

@@ -447,11 +447,11 @@ html, body {
     min-height: 60px;
 }
 
-/* ===== Drop Zone ===== */
-.drop-zone {
+/* ===== File Upload Zone ===== */
+.file-upload-zone {
     border: 2px dashed var(--border-color);
     border-radius: var(--radius-md);
-    padding: 32px;
+    padding: 24px;
     text-align: center;
     transition: all var(--transition);
     background: var(--bg-page);
@@ -460,23 +460,41 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
 }
 
-.drop-zone.drag-over {
+.file-upload-zone:hover {
     border-color: var(--accent-color);
-    background: color-mix(in srgb, var(--accent-color) 10%, var(--bg-page));
+    background: color-mix(in srgb, var(--accent-color) 6%, var(--bg-page));
 }
 
-.drop-zone-placeholder {
+.file-input {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.file-upload-placeholder {
     color: var(--text-muted);
 }
 
-.drop-zone-placeholder p {
+.file-upload-placeholder p {
     margin-top: 8px;
     font-size: 13px;
 }
 
-.drop-preview {
+.file-upload-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+.file-preview {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -487,7 +505,7 @@ html, body {
     width: 100%;
 }
 
-.drop-preview-thumb {
+.file-preview-thumb {
     width: 48px;
     height: 48px;
     border-radius: 4px;
@@ -499,13 +517,13 @@ html, body {
     justify-content: center;
 }
 
-.drop-preview-thumb img {
+.file-preview-thumb img {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
 }
 
-.drop-preview-info {
+.file-preview-info {
     flex: 1;
     min-width: 0;
     display: flex;
@@ -513,7 +531,7 @@ html, body {
     gap: 2px;
 }
 
-.drop-preview-name {
+.file-preview-name {
     font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
@@ -522,12 +540,12 @@ html, body {
     text-overflow: ellipsis;
 }
 
-.drop-preview-type {
+.file-preview-type {
     font-size: 11px;
     color: var(--text-muted);
 }
 
-.drop-preview-remove {
+.file-preview-remove {
     width: 24px;
     height: 24px;
     border: none;
@@ -543,15 +561,9 @@ html, body {
     transition: all var(--transition);
 }
 
-.drop-preview-remove:hover {
+.file-preview-remove:hover {
     background: #fee;
     color: #e44;
-}
-
-.drop-zone-status {
-    margin-top: 8px;
-    font-size: 12px;
-    color: var(--text-muted);
 }
 
 /* ===== Form Actions ===== */

@@ -31,13 +31,16 @@
             'upload.author.ph': '输入作者名称',
             'upload.desc': '素材描述 *',
             'upload.desc.ph': '输入素材描述',
-            'upload.dropHint': '拖拽素材到此处',
-            'upload.dropHint2': '从编辑器拖拽素材到此处',
+            'upload.select': '选择素材文件 *',
+            'upload.fileHint': '点击选择文件',
+            'upload.fileTypes': '支持 .sprite3(角色) .svg/.png(造型) .wav/.mp3(音频)',
             'upload.cancel': '取消',
             'upload.submit': '上传素材',
-            'upload.capturing': '请从编辑器拖拽素材...',
-            'upload.captured': '已捕获素材',
             'upload.uploading': '正在上传...',
+            'file.type.sprite': '角色文件',
+            'file.type.costume': '造型文件',
+            'file.type.sound': '音频文件',
+            'file.select.error': '请选择素材文件',
             'toast.upload.success': '素材上传成功！',
             'toast.upload.fail': '上传失败: {msg}',
             'toast.load.fail': '加载失败: {msg}',
@@ -74,13 +77,16 @@
             'upload.author.ph': 'Enter author name',
             'upload.desc': 'Description *',
             'upload.desc.ph': 'Enter description',
-            'upload.dropHint': 'Drop material here',
-            'upload.dropHint2': 'Drag material from the editor here',
+            'upload.select': 'Select Material File *',
+            'upload.fileHint': 'Click to select a file',
+            'upload.fileTypes': 'Supports .sprite3(sprite) .svg/.png(costume) .wav/.mp3(audio)',
             'upload.cancel': 'Cancel',
             'upload.submit': 'Upload Material',
-            'upload.capturing': 'Drag material from the editor...',
-            'upload.captured': 'Material captured',
             'upload.uploading': 'Uploading...',
+            'file.type.sprite': 'Sprite File',
+            'file.type.costume': 'Costume File',
+            'file.type.sound': 'Audio File',
+            'file.select.error': 'Please select a material file',
             'toast.upload.success': 'Material uploaded successfully!',
             'toast.upload.fail': 'Upload failed: {msg}',
             'toast.load.fail': 'Load failed: {msg}',
@@ -165,18 +171,16 @@
         if (descLabel) descLabel.textContent = __('upload.desc');
         const descInput = document.getElementById('descInput');
         if (descInput) descInput.placeholder = __('upload.desc.ph');
-        const dropLabel = document.querySelector('#uploadModal .form-group:nth-child(3) label');
-        if (dropLabel) dropLabel.textContent = __('upload.dropHint');
-        const dropHint = document.querySelector('.drop-zone-placeholder p');
-        if (dropHint) dropHint.textContent = __('upload.dropHint2');
+        const fileLabel = document.querySelector('#uploadModal .form-group:nth-child(3) label');
+        if (fileLabel) fileLabel.textContent = __('upload.select');
+        const fileHint = document.querySelector('.file-upload-placeholder p');
+        if (fileHint) fileHint.textContent = __('upload.fileHint');
+        const fileTypes = document.querySelector('.file-upload-hint');
+        if (fileTypes) fileTypes.textContent = __('upload.fileTypes');
         const cancelBtn = document.getElementById('uploadCancelBtn');
         if (cancelBtn) cancelBtn.textContent = __('upload.cancel');
         const submitBtn = document.getElementById('uploadSubmitBtn');
         if (submitBtn) submitBtn.textContent = __('upload.submit');
-        const dropStatus = document.getElementById('dropZoneStatus');
-        if (dropStatus && !dropStatus.textContent.includes('已捕获')) {
-            dropStatus.textContent = '';
-        }
         // Title
         const titleEl = document.querySelector('.header-title');
         if (titleEl) titleEl.textContent = __('title');
@@ -198,7 +202,7 @@
     let materials = [];
     let currentFilter = 'all';
     let searchQuery = '';
-    let capturedMaterial = null; // 编辑器捕获的素材
+    let selectedFileData = null; // 选择的文件数据
 
     // ===== Toast 通知 =====
     let toastTimer = null;
@@ -510,47 +514,114 @@
 
     // ===== 上传弹窗 =====
     function openUploadModal() {
-        capturedMaterial = null;
+        selectedFileData = null;
         document.getElementById('authorInput').value = '';
         document.getElementById('descInput').value = '';
-        document.getElementById('dropPreview').style.display = 'none';
-        document.querySelector('.drop-zone-placeholder').style.display = 'flex';
-        document.getElementById('dropZoneStatus').textContent = '';
+        document.getElementById('fileInput').value = '';
+        document.getElementById('filePreview').style.display = 'none';
+        document.getElementById('fileUploadPlaceholder').style.display = 'flex';
         document.getElementById('uploadSubmitBtn').disabled = true;
         uploadModal.style.display = 'flex';
-
-        // 请求编辑器显示浮动拖拽区
-        if (window.MaterialPlazaBridge) {
-            window.MaterialPlazaBridge.requestCapture();
-        }
     }
 
     function closeUploadModal() {
         uploadModal.style.display = 'none';
-        // 通知编辑器取消捕获模式
-        if (window.MaterialPlazaBridge) {
-            window.MaterialPlazaBridge.cancelCapture();
+    }
+
+    // 根据文件扩展名判断素材类型
+    function getFileType(filename) {
+        var ext = filename.split('.').pop().toLowerCase();
+        if (ext === 'sprite3') return 'sprite';
+        if (ext === 'svg' || ext === 'png') return 'costume';
+        if (ext === 'wav' || ext === 'mp3') return 'sound';
+        return null;
+    }
+
+    // 根据文件扩展名获取 MIME 类型
+    function getFileMime(filename) {
+        var ext = filename.split('.').pop().toLowerCase();
+        var mimeMap = {
+            'sprite3': 'application/zip',
+            'svg': 'image/svg+xml',
+            'png': 'image/png',
+            'wav': 'audio/wav',
+            'mp3': 'audio/mpeg'
+        };
+        return mimeMap[ext] || 'application/octet-stream';
+    }
+
+    // 获取文件类型显示标签
+    function getFileTypeLabel(type) {
+        var labels = {
+            'sprite': __('file.type.sprite'),
+            'costume': __('file.type.costume'),
+            'sound': __('file.type.sound')
+        };
+        return labels[type] || type;
+    }
+
+    // ArrayBuffer 转 Base64
+    function arrayBufferToBase64(buffer) {
+        var binary = '';
+        var bytes = new Uint8Array(buffer);
+        for (var i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+    }
+
+    // 处理选择的文件
+    function handleFileSelect(file) {
+        if (!file) return;
+
+        var type = getFileType(file.name);
+        if (!type) {
+            showToast(__('upload.fileTypes'), 'error');
+            return;
+        }
+
+        var name = file.name.replace(/\.[^/.]+$/, ''); // 去掉扩展名
+        var mime = getFileMime(file.name);
+        var ext = file.name.split('.').pop().toLowerCase();
+
+        // 判断是否为二进制文件
+        var isBinary = (ext === 'sprite3' || ext === 'png' || ext === 'wav' || ext === 'mp3');
+
+        if (isBinary) {
+            // 二进制文件：读取为 ArrayBuffer 再转 base64
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                var body = arrayBufferToBase64(e.target.result);
+                showFilePreview(name, type, body, mime);
+            };
+            reader.readAsArrayBuffer(file);
+        } else {
+            // 文本文件 (SVG)
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                var body = e.target.result;
+                showFilePreview(name, type, body, mime);
+            };
+            reader.readAsText(file);
         }
     }
 
-    // 处理编辑器捕获的素材
-    function handleCapturedMaterial(data) {
-        capturedMaterial = data;
-        document.querySelector('.drop-zone-placeholder').style.display = 'none';
-        document.getElementById('dropPreview').style.display = 'flex';
-        document.getElementById('dropPreviewName').textContent = data.name || __('unknown.author');
-        document.getElementById('dropPreviewType').textContent = __('type.' + data.type) || data.type;
-        document.getElementById('dropPreviewThumb').innerHTML = '';
-        if (data.thumbnailUrl || data.thumbnail) {
-            var img = document.createElement('img');
-            img.src = data.thumbnailUrl || ('data:image/png;base64,' + data.thumbnail);
-            document.getElementById('dropPreviewThumb').appendChild(img);
-        } else {
-            document.getElementById('dropPreviewThumb').textContent = getTypeIcon(data.type);
-            document.getElementById('dropPreviewThumb').style.fontSize = '24px';
-        }
-        document.getElementById('dropZoneStatus').textContent = __('upload.captured') + ': ' + (data.name || '');
-        // 检查表单是否完整
+    function showFilePreview(name, type, body, mime) {
+        selectedFileData = {
+            name: name,
+            type: type,
+            mime: mime,
+            body: body,
+            bodyMD5: ''
+        };
+
+        document.getElementById('fileUploadPlaceholder').style.display = 'none';
+        document.getElementById('filePreview').style.display = 'flex';
+        document.getElementById('filePreviewName').textContent = name;
+        document.getElementById('filePreviewType').textContent = getFileTypeLabel(type);
+        document.getElementById('filePreviewThumb').innerHTML = '';
+        document.getElementById('filePreviewThumb').textContent = getTypeIcon(type);
+        document.getElementById('filePreviewThumb').style.fontSize = '24px';
         checkUploadForm();
     }
 
@@ -558,15 +629,15 @@
     function checkUploadForm() {
         var author = document.getElementById('authorInput').value.trim();
         var desc = document.getElementById('descInput').value.trim();
-        document.getElementById('uploadSubmitBtn').disabled = !(author && desc && capturedMaterial);
+        document.getElementById('uploadSubmitBtn').disabled = !(author && desc && selectedFileData);
     }
 
     // 执行上传
     async function handleUpload() {
         var author = document.getElementById('authorInput').value.trim();
         var desc = document.getElementById('descInput').value.trim();
-        if (!author || !desc || !capturedMaterial) {
-            showToast(__('upload.author') + ' / ' + __('upload.desc') + ' ' + __('upload.dropHint'), 'error');
+        if (!author || !desc || !selectedFileData) {
+            showToast(__('upload.author') + ' / ' + __('upload.desc') + ' ' + __('file.select.error'), 'error');
             return;
         }
 
@@ -576,13 +647,13 @@
 
         try {
             await uploadMaterial({
-                name: capturedMaterial.name || 'untitled',
+                name: selectedFileData.name || 'untitled',
                 author: author,
                 description: desc,
-                type: capturedMaterial.type,
-                mime: capturedMaterial.mime || 'application/octet-stream',
-                body: capturedMaterial.body,
-                bodyMD5: capturedMaterial.bodyMD5 || ''
+                type: selectedFileData.type,
+                mime: selectedFileData.mime || 'application/octet-stream',
+                body: selectedFileData.body,
+                bodyMD5: selectedFileData.bodyMD5 || ''
             });
             showToast(__('toast.upload.success'), 'success');
             closeUploadModal();
@@ -646,12 +717,23 @@
         document.getElementById('uploadModalClose').addEventListener('click', closeUploadModal);
         document.getElementById('uploadCancelBtn').addEventListener('click', closeUploadModal);
         document.getElementById('uploadSubmitBtn').addEventListener('click', handleUpload);
-        document.getElementById('dropPreviewRemove').addEventListener('click', function () {
-            capturedMaterial = null;
-            document.getElementById('dropPreview').style.display = 'none';
-            document.querySelector('.drop-zone-placeholder').style.display = 'flex';
-            document.getElementById('dropZoneStatus').textContent = '';
+        document.getElementById('filePreviewRemove').addEventListener('click', function () {
+            selectedFileData = null;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('filePreview').style.display = 'none';
+            document.getElementById('fileUploadPlaceholder').style.display = 'flex';
             document.getElementById('uploadSubmitBtn').disabled = true;
+        });
+        document.getElementById('fileInput').addEventListener('change', function () {
+            if (this.files && this.files.length > 0) {
+                handleFileSelect(this.files[0]);
+            }
+        });
+        // 点击上传区域触发文件选择
+        document.getElementById('fileUploadZone').addEventListener('click', function (e) {
+            if (e.target.id !== 'filePreviewRemove' && !e.target.closest('.file-preview')) {
+                document.getElementById('fileInput').click();
+            }
         });
 
         // 表单输入变化
@@ -664,13 +746,6 @@
                 closeUploadModal();
             }
         });
-
-        // 监听编辑器捕获的素材
-        if (window.MaterialPlazaBridge) {
-            window.MaterialPlazaBridge.onCapturedMaterial(function (data) {
-                handleCapturedMaterial(data);
-            });
-        }
 
         // 监听编辑器语言变化
         if (window.MaterialPlazaBridge) {
