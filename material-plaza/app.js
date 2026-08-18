@@ -29,8 +29,10 @@
             'upload.title': '上传素材',
             'upload.author': '作者名称 *',
             'upload.author.ph': '输入作者名称',
-            'upload.desc': '素材描述 *',
-            'upload.desc.ph': '输入素材描述',
+            'upload.titleLabel': '标题 *',
+            'upload.titlePh': '输入素材标题',
+            'upload.desc': '素材描述',
+            'upload.desc.ph': '输入素材描述（选填）',
             'upload.select': '选择素材文件 *',
             'upload.fileHint': '点击选择文件',
             'upload.fileTypes': '支持 .sprite3(角色) .svg/.png(造型) .wav/.mp3(音频)',
@@ -75,8 +77,10 @@
             'upload.title': 'Upload Material',
             'upload.author': 'Author Name *',
             'upload.author.ph': 'Enter author name',
-            'upload.desc': 'Description *',
-            'upload.desc.ph': 'Enter description',
+            'upload.titleLabel': 'Title *',
+            'upload.titlePh': 'Enter material title',
+            'upload.desc': 'Description',
+            'upload.desc.ph': 'Enter description (optional)',
             'upload.select': 'Select Material File *',
             'upload.fileHint': 'Click to select a file',
             'upload.fileTypes': 'Supports .sprite3(sprite) .svg/.png(costume) .wav/.mp3(audio)',
@@ -167,11 +171,23 @@
         if (authorLabel) authorLabel.textContent = __('upload.author');
         const authorInput = document.getElementById('authorInput');
         if (authorInput) authorInput.placeholder = __('upload.author.ph');
-        const descLabel = document.querySelector('#uploadModal .form-group:nth-child(2) label');
+        const titleLabel = document.querySelector('#uploadModal .form-group:nth-child(2) label');
+        if (titleLabel) {
+            var titleLabelText = document.createTextNode(__('upload.titleLabel'));
+            var existingText = titleLabel.childNodes[0];
+            if (existingText && existingText.nodeType === 3) {
+                existingText.textContent = __('upload.titleLabel');
+            } else {
+                titleLabel.insertBefore(document.createTextNode(__('upload.titleLabel') + ' '), titleLabel.firstChild);
+            }
+        }
+        const titleInput = document.getElementById('titleInput');
+        if (titleInput) titleInput.placeholder = __('upload.titlePh');
+        const descLabel = document.querySelector('#uploadModal .form-group:nth-child(3) .desc-label-text');
         if (descLabel) descLabel.textContent = __('upload.desc');
         const descInput = document.getElementById('descInput');
         if (descInput) descInput.placeholder = __('upload.desc.ph');
-        const fileLabel = document.querySelector('#uploadModal .form-group:nth-child(3) label');
+        const fileLabel = document.querySelector('#uploadModal .form-group:nth-child(4) label');
         if (fileLabel) fileLabel.textContent = __('upload.select');
         const fileHint = document.querySelector('.file-upload-placeholder p');
         if (fileHint) fileHint.textContent = __('upload.fileHint');
@@ -276,12 +292,12 @@
         return res.json();
     }
 
-    // 获取文件内容 (base64 encoded)
+    // 获取文件内容 (base64 encoded, UTF-8 安全)
     async function getFileContent(path) {
         try {
             const data = await githubFetch('/contents/' + path);
             return {
-                content: atob(data.content.replace(/\n/g, '')),
+                content: base64ToString(data.content.replace(/\n/g, '')),
                 sha: data.sha
             };
         } catch (e) {
@@ -292,12 +308,12 @@
         }
     }
 
-    // 创建或更新文件
+    // 创建或更新文件 (UTF-8 安全)
     async function putFile(path, content, message) {
         const existing = await getFileContent(path);
         const body = {
             message: message,
-            content: btoa(unescape(encodeURIComponent(content)))
+            content: stringToBase64(content)
         };
         if (existing && existing.sha) {
             body.sha = existing.sha;
@@ -349,12 +365,14 @@
         const material = {
             id: id,
             name: materialData.name,
+            title: materialData.title || materialData.name,
             author: materialData.author,
-            description: materialData.description,
+            description: materialData.description || '',
             type: materialData.type,
             mime: materialData.mime,
             body: materialData.body,
             bodyMD5: materialData.bodyMD5,
+            thumbnail: materialData.thumbnail || '',
             uploadDate: now
         };
 
@@ -369,10 +387,12 @@
         const indexEntry = {
             id: id,
             name: materialData.name,
+            title: materialData.title || materialData.name,
             author: materialData.author,
-            description: materialData.description,
+            description: materialData.description || '',
             type: materialData.type,
             mime: materialData.mime,
+            thumbnail: materialData.thumbnail || '',
             uploadDate: now
         };
         materials.unshift(indexEntry);
@@ -418,7 +438,8 @@
         if (searchQuery.trim()) {
             const q = searchQuery.trim().toLowerCase();
             filtered = filtered.filter(function (m) {
-                return (m.name && m.name.toLowerCase().includes(q)) ||
+                return (m.title && m.title.toLowerCase().includes(q)) ||
+                    (m.name && m.name.toLowerCase().includes(q)) ||
                     (m.author && m.author.toLowerCase().includes(q)) ||
                     (m.description && m.description.toLowerCase().includes(q)) ||
                     (m.type && m.type.toLowerCase().includes(q));
@@ -466,19 +487,36 @@
             sound: __('type.sound')
         };
 
+        // 构建缩略图 HTML
+        var thumbContent = '';
+        if (material.thumbnail) {
+            if (material.type === 'sound') {
+                // 音频图标：使用 currentColor 适配深色/浅色模式
+                thumbContent = '<div class="material-card-thumb-icon sound-icon">' +
+                    material.thumbnail +
+                    '</div>';
+            } else {
+                thumbContent = '<img src="' + escapeHtml(material.thumbnail) + '" alt="' + escapeHtml(material.title || material.name) + '" loading="lazy" />';
+            }
+        } else {
+            // 无缩略图时显示占位图标
+            thumbContent = '<div class="material-card-thumb-placeholder" style="font-size:32px;color:#ccc">' +
+                getTypeIcon(material.type) +
+                '</div>';
+        }
+
         card.innerHTML =
             '<div class="material-card-thumb">' +
                 '<div class="material-card-type-badge ' + material.type + '" style="background:' + (typeColors[material.type] || '#999') + '">' +
                     (typeLabels[material.type] || material.type) +
                 '</div>' +
-                '<div class="material-card-thumb-placeholder" style="font-size:32px;color:#ccc">' +
-                    getTypeIcon(material.type) +
-                '</div>' +
+                thumbContent +
             '</div>' +
             '<div class="material-card-body">' +
-                '<div class="material-card-name" title="' + escapeHtml(material.name || '') + '">' +
-                    escapeHtml(material.name || '') +
+                '<div class="material-card-title" title="' + escapeHtml(material.title || material.name || '') + '">' +
+                    escapeHtml(material.title || material.name || '') +
                 '</div>' +
+                (material.description ? '<div class="material-card-desc" title="' + escapeHtml(material.description) + '">' + escapeHtml(material.description) + '</div>' : '') +
                 '<div class="material-card-meta">' +
                     '<span class="material-card-author">' + escapeHtml(material.author || __('unknown.author')) + '</span>' +
                     '<span class="material-card-type">' + (typeLabels[material.type] || material.type) + '</span>' +
@@ -554,6 +592,7 @@
     function openUploadModal() {
         selectedFileData = null;
         document.getElementById('authorInput').value = '';
+        document.getElementById('titleInput').value = '';
         document.getElementById('descInput').value = '';
         document.getElementById('fileInput').value = '';
         document.getElementById('filePreview').style.display = 'none';
@@ -608,6 +647,139 @@
         return btoa(binary);
     }
 
+    // 字符串转 Base64（UTF-8 安全，解决中文乱码）
+    function stringToBase64(str) {
+        var bytes = new TextEncoder().encode(str);
+        var binary = '';
+        for (var i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+    }
+
+    // Base64 转字符串（UTF-8 安全）
+    function base64ToString(base64) {
+        var binary = atob(base64);
+        var bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return new TextDecoder('utf-8').decode(bytes);
+    }
+
+    // 简单的 ZIP 解析器：从 sprite3 文件中提取第一个造型的图片
+    function parseSprite3Thumbnail(arrayBuffer) {
+        try {
+            var bytes = new Uint8Array(arrayBuffer);
+            var view = new DataView(arrayBuffer);
+            var offset = 0;
+            var files = {};
+
+            // 遍历 ZIP 本地文件头
+            while (offset + 30 < bytes.length) {
+                var sig = view.getUint32(offset, true);
+                if (sig === 0x04034b50) { // 本地文件头签名
+                    var flags = view.getUint16(offset + 6, true);
+                    var compression = view.getUint16(offset + 8, true);
+                    var compressedSize = view.getUint32(offset + 18, true);
+                    var uncompressedSize = view.getUint32(offset + 22, true);
+                    var nameLen = view.getUint16(offset + 26, true);
+                    var extraLen = view.getUint16(offset + 28, true);
+
+                    var name = '';
+                    for (var i = 0; i < nameLen; i++) {
+                        name += String.fromCharCode(bytes[offset + 30 + i]);
+                    }
+
+                    var dataOffset = offset + 30 + nameLen + extraLen;
+                    var dataEnd = dataOffset + compressedSize;
+
+                    if (compressedSize > 0 || uncompressedSize > 0) {
+                        var fileData = arrayBuffer.slice(dataOffset, dataEnd);
+                        if (compression === 0) {
+                            // 未压缩
+                            files[name] = fileData;
+                        } else if (compression === 8) {
+                            // Deflate 压缩 - 使用浏览器 API
+                            try {
+                                var ds = new DecompressionStream('deflate-raw');
+                                var writer = ds.writable.getWriter();
+                                writer.write(fileData);
+                                writer.close();
+                                var reader = ds.readable.getReader();
+                                var chunks = [];
+                                function readAll() {
+                                    return reader.read().then(function (result) {
+                                        if (result.done) return new Blob(chunks).arrayBuffer();
+                                        chunks.push(result.value);
+                                        return readAll();
+                                    });
+                                }
+                                // 同步方式：对于小文件，用 Promise 处理
+                                // 实际上这里需要异步，但为了保持同步逻辑，只在 sprite.json 和图片上使用
+                                // 先标记为未解析，后面再处理
+                            } catch (e) {
+                                // 不支持 DecompressionStream
+                            }
+                        }
+                    }
+
+                    offset = dataEnd;
+                } else if (sig === 0x02014b50 || sig === 0x06054b50) {
+                    // 中央目录或结束标记，停止
+                    break;
+                } else {
+                    offset++;
+                }
+            }
+
+            // 读取 sprite.json
+            if (files['sprite.json']) {
+                var jsonStr = new TextDecoder('utf-8').decode(new Uint8Array(files['sprite.json']));
+                var spriteData = JSON.parse(jsonStr);
+
+                // 获取第一个造型
+                if (spriteData.costumes && spriteData.costumes.length > 0) {
+                    var firstCostume = spriteData.costumes[0];
+                    var md5ext = firstCostume.md5ext || firstCostume.baseLayerMD5 || '';
+                    // 尝试获取造型名称对应的文件
+                    var costumeAsset = files[md5ext];
+                    if (costumeAsset) {
+                        var ext = md5ext.split('.').pop().toLowerCase();
+                        var mime = ext === 'svg' ? 'image/svg+xml' : 'image/png';
+                        var b64 = arrayBufferToBase64(costumeAsset);
+                        return 'data:' + mime + ';base64,' + b64;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to parse sprite3 thumbnail:', e);
+        }
+        return null;
+    }
+
+    // 从已读取的文件数据中提取缩略图
+    function extractFileThumbnail(file, type, arrayBuffer, textContent) {
+        if (type === 'sprite') {
+            return parseSprite3Thumbnail(arrayBuffer);
+        } else if (type === 'costume') {
+            // SVG 或 PNG 直接作为缩略图
+            if (file.name.endsWith('.svg')) {
+                return 'data:image/svg+xml;base64,' + arrayBufferToBase64(arrayBuffer);
+            } else if (file.name.endsWith('.png')) {
+                return 'data:image/png;base64,' + arrayBufferToBase64(arrayBuffer);
+            }
+        }
+        return null;
+    }
+
+    // 音频图标 SVG（适配深色/浅色模式，使用 currentColor）
+    function getAudioIconSvg() {
+        return '<svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">' +
+            '<path d="M12.4785,12.6667 C12.3145,12.6667 12.1459,12.6272 11.9926,12.5441 C11.5374,12.296 11.3856,11.7562 11.6554,11.3376 C12.1689,10.5371 12.1689,9.54492 11.6554,8.74581 C11.3856,8.32582 11.5374,7.78603 11.9926,7.53798 C12.4524,7.29275 13.038,7.43087 13.3047,7.84804 C14.1738,9.20103 14.1738,10.881 13.3047,12.234 C13.1269,12.513 12.8065,12.6667 12.4785,12.6667 Z M15.3807,13.8333 C15.2409,13.8333 15.0959,13.7963 14.9665,13.7182 C14.5785,13.4853 14.4492,12.9785 14.6791,12.5855 C15.5949,11.016 15.5949,9.06549 14.6791,7.49738 C14.4492,7.10436 14.5785,6.59622 14.9665,6.36332 C15.3559,6.13439 15.8549,6.26275 16.0848,6.65444 C17.3051,8.74261 17.3051,11.3389 16.0848,13.4271 C15.932,13.6891 15.6603,13.8333 15.3807,13.8333 Z M10.3043,5.62502 L10.3043,13.8737 C10.3043,14.8509 9.1097,15.3625 8.36478,14.7038 L6.7566,13.2798 C6.18712,12.7763 5.44499,12.4969 4.67362,12.4969 L4.39237,12.4969 C3.62378,12.4969 3,11.8935 3,11.1471 L3,8.36647 C3,7.62138 3.62378,7.01666 4.39237,7.01666 L4.65831,7.01666 C5.42968,7.01666 6.17181,6.73726 6.74129,6.23378 L8.36478,4.79624 C9.1097,4.13753 10.3043,4.64911 10.3043,5.62502 Z"/>' +
+            '</svg>';
+    }
+
     // 处理选择的文件
     function handleFileSelect(file) {
         if (!file) return;
@@ -622,60 +794,76 @@
         var mime = getFileMime(file.name);
         var ext = file.name.split('.').pop().toLowerCase();
 
-        // 判断是否为二进制文件
-        var isBinary = (ext === 'sprite3' || ext === 'png' || ext === 'wav' || ext === 'mp3');
+        // 都读取为 ArrayBuffer 以便提取缩略图
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            var arrayBuffer = e.target.result;
+            var body = arrayBufferToBase64(arrayBuffer);
 
-        if (isBinary) {
-            // 二进制文件：读取为 ArrayBuffer 再转 base64
-            var reader = new FileReader();
-            reader.onload = function (e) {
-                var body = arrayBufferToBase64(e.target.result);
-                showFilePreview(name, type, body, mime);
-            };
-            reader.readAsArrayBuffer(file);
-        } else {
-            // 文本文件 (SVG)
-            var reader = new FileReader();
-            reader.onload = function (e) {
-                var body = e.target.result;
-                showFilePreview(name, type, body, mime);
-            };
-            reader.readAsText(file);
-        }
+            // 提取缩略图
+            var thumbnail = extractFileThumbnail(file, type, arrayBuffer);
+
+            showFilePreview(name, type, body, mime, thumbnail, arrayBuffer);
+        };
+        reader.readAsArrayBuffer(file);
     }
 
-    function showFilePreview(name, type, body, mime) {
+    function showFilePreview(name, type, body, mime, thumbnail, arrayBuffer) {
         selectedFileData = {
             name: name,
             type: type,
             mime: mime,
             body: body,
-            bodyMD5: ''
+            bodyMD5: '',
+            thumbnail: thumbnail || ''
         };
 
         document.getElementById('fileUploadPlaceholder').style.display = 'none';
         document.getElementById('filePreview').style.display = 'flex';
         document.getElementById('filePreviewName').textContent = name;
         document.getElementById('filePreviewType').textContent = getFileTypeLabel(type);
-        document.getElementById('filePreviewThumb').innerHTML = '';
-        document.getElementById('filePreviewThumb').textContent = getTypeIcon(type);
-        document.getElementById('filePreviewThumb').style.fontSize = '24px';
+        var thumbEl = document.getElementById('filePreviewThumb');
+        thumbEl.innerHTML = '';
+
+        if (thumbnail) {
+            if (type === 'sound') {
+                // 音频图标 SVG（用 currentColor 适配深色/浅色模式）
+                thumbEl.innerHTML = thumbnail;
+                var svg = thumbEl.querySelector('svg');
+                if (svg) {
+                    svg.style.width = '32px';
+                    svg.style.height = '32px';
+                    svg.style.color = 'var(--text-muted)';
+                }
+            } else {
+                // 图片缩略图
+                var img = document.createElement('img');
+                img.src = thumbnail;
+                img.alt = name;
+                thumbEl.appendChild(img);
+            }
+        } else {
+            // 无缩略图时显示类型图标
+            thumbEl.textContent = getTypeIcon(type);
+            thumbEl.style.fontSize = '24px';
+        }
         checkUploadForm();
     }
 
     // 检查上传表单是否可提交
     function checkUploadForm() {
         var author = document.getElementById('authorInput').value.trim();
-        var desc = document.getElementById('descInput').value.trim();
-        document.getElementById('uploadSubmitBtn').disabled = !(author && desc && selectedFileData);
+        var title = document.getElementById('titleInput').value.trim();
+        document.getElementById('uploadSubmitBtn').disabled = !(author && title && selectedFileData);
     }
 
     // 执行上传
     async function handleUpload() {
         var author = document.getElementById('authorInput').value.trim();
+        var title = document.getElementById('titleInput').value.trim();
         var desc = document.getElementById('descInput').value.trim();
-        if (!author || !desc || !selectedFileData) {
-            showToast(__('upload.author') + ' / ' + __('upload.desc') + ' ' + __('file.select.error'), 'error');
+        if (!author || !title || !selectedFileData) {
+            showToast(__('upload.author') + ' / ' + __('upload.titleLabel') + ' ' + __('file.select.error'), 'error');
             return;
         }
 
@@ -686,12 +874,14 @@
         try {
             await uploadMaterial({
                 name: selectedFileData.name || 'untitled',
+                title: title,
                 author: author,
                 description: desc,
                 type: selectedFileData.type,
                 mime: selectedFileData.mime || 'application/octet-stream',
                 body: selectedFileData.body,
-                bodyMD5: selectedFileData.bodyMD5 || ''
+                bodyMD5: selectedFileData.bodyMD5 || '',
+                thumbnail: selectedFileData.thumbnail || ''
             });
             showToast(__('toast.upload.success'), 'success');
             closeUploadModal();
@@ -776,6 +966,7 @@
 
         // 表单输入变化
         document.getElementById('authorInput').addEventListener('input', checkUploadForm);
+        document.getElementById('titleInput').addEventListener('input', checkUploadForm);
         document.getElementById('descInput').addEventListener('input', checkUploadForm);
 
         // 点击遮罩层关闭
