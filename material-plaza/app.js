@@ -217,11 +217,45 @@
     }
 
     // ===== GitHub API 工具 =====
+    // 检测是否在 iframe 中（编辑器内嵌模式）
+    function isInIframe() {
+        try {
+            return window.self !== window.top;
+        } catch (e) {
+            return true;
+        }
+    }
+
+    // 是否为可用的桥接模式
+    function canUseBridge() {
+        return isInIframe() && window.MaterialPlazaBridge && window.MaterialPlazaBridge.forwardGithubFetch;
+    }
+
     async function githubFetch(path, options) {
         options = options || {};
         options.headers = options.headers || {};
         options.headers.Authorization = 'Bearer ' + GITHUB_TOKEN;
         options.headers.Accept = 'application/vnd.github.v3+json';
+
+        if (canUseBridge()) {
+            // 通过编辑器父窗口转发请求（解决 iframe 内 CORS 问题）
+            const result = await window.MaterialPlazaBridge.forwardGithubFetch(path, {
+                method: options.method || 'GET',
+                body: options.body || null
+            });
+            if (result.error) {
+                throw new Error(result.error);
+            }
+            // 模拟 Response 对象，兼容现有调用方
+            return {
+                ok: result.status >= 200 && result.status < 300,
+                status: result.status || 200,
+                json: async function () { return result.data; },
+                text: async function () { return JSON.stringify(result.data); }
+            };
+        }
+
+        // 直接 fetch（浏览器独立打开时使用）
         const url = GITHUB_API_BASE + path;
         const res = await fetch(url, options);
         if (!res.ok) {
