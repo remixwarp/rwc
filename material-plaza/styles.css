@@ -789,6 +789,130 @@ html, body {
     max-width: 400px;
 }
 
+/* 目标选择弹窗 */
+.target-select-modal {
+    max-width: 480px;
+}
+
+.target-select-hint {
+    margin-bottom: 16px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.target-list-container {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+}
+
+.target-list-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    gap: 12px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.target-list-loading .spinner {
+    width: 24px;
+    height: 24px;
+    border-width: 2px;
+}
+
+.target-list-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.target-list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background var(--transition);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.target-list-item:last-child {
+    border-bottom: none;
+}
+
+.target-list-item:hover {
+    background: var(--hover-bg);
+}
+
+.target-list-item.selected {
+    background: var(--accent-color);
+    color: #fff;
+}
+
+.target-list-item.selected .target-list-item-name,
+.target-list-item.selected .target-list-item-meta {
+    color: #fff;
+}
+
+.target-list-item-thumb {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: var(--thumb-bg);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.target-list-item-thumb img,
+.target-list-item-thumb svg {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.target-list-item-thumb.stage-thumb svg {
+    padding: 4px;
+}
+
+.target-list-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.target-list-item-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.target-list-item-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.target-list-item-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: var(--accent-color);
+    color: #fff;
+    opacity: 0.8;
+    flex-shrink: 0;
+}
+
 /* ===== Form Actions ===== */
 .form-actions {
     display: flex;

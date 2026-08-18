@@ -6,6 +6,40 @@
     'use strict';
     const CHANNEL = 'rwc-material-plaza';
 
+    // 目标列表请求队列
+    const targetListRequests = {};
+    let targetListRequestId = 0;
+
+    // 请求编辑器返回目标列表（角色和背景）
+    function requestTargetList() {
+        return new Promise(function (resolve, reject) {
+            var id = 'tl_' + (++targetListRequestId);
+            targetListRequests[id] = { resolve: resolve, reject: reject };
+
+            window.parent.postMessage({
+                channel: CHANNEL,
+                type: 'getTargetList',
+                data: { requestId: id }
+            }, '*');
+
+            setTimeout(function () {
+                if (targetListRequests[id]) {
+                    delete targetListRequests[id];
+                    reject(new Error('Target list request timeout'));
+                }
+            }, 10000);
+        });
+    }
+
+    // 请求编辑器将素材应用到指定目标
+    function requestApplyMaterialToTarget(targetId, materialData) {
+        window.parent.postMessage({
+            channel: CHANNEL,
+            type: 'applyMaterial',
+            data: Object.assign({}, materialData, { targetId: targetId })
+        }, '*');
+    }
+
     // 通知编辑器素材广场已就绪
     function notifyReady() {
         window.parent.postMessage({
@@ -100,6 +134,21 @@
             return;
         }
 
+        // 处理目标列表响应
+        if (data.type === 'targetListResult') {
+            var reqId = data.data && data.data.requestId;
+            if (reqId && targetListRequests[reqId]) {
+                var handler = targetListRequests[reqId];
+                delete targetListRequests[reqId];
+                if (data.data.error) {
+                    handler.reject(new Error(data.data.error));
+                } else {
+                    handler.resolve(data.data.targets || []);
+                }
+            }
+            return;
+        }
+
         switch (data.type) {
             case 'editorLocale':
                 // 编辑器语言变化
@@ -172,6 +221,8 @@
         _editorTheme: null,
         notifyReady: notifyReady,
         requestApplyMaterial: requestApplyMaterial,
+        requestApplyMaterialToTarget: requestApplyMaterialToTarget,
+        requestTargetList: requestTargetList,
         notifyUploadComplete: notifyUploadComplete,
         forwardGithubRead: forwardGithubRead,
         onLocaleChange: function (callback) {

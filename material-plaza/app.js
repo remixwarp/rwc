@@ -61,13 +61,23 @@
             'capture.hint': '请完成验证后继续上传',
             'remove': '移除',
             'editor.hint': '上传素材请转到独立页面操作',
-            'editor.hintLink': '上传素材请转到独立页面',
+            'editor.hintLink': '上传素材请转到独立界面 rw-c.pages.dev/material-plaza/',
             'editor.uploadDisabled': '在编辑器内无法上传素材',
             'upload.cover': '封面图',
             'upload.coverOptional': '(选填)',
             'upload.coverHint': '选择封面图片（可选）',
             'captcha.title': '人机验证',
-            'theme.toggle': '切换深浅色'
+            'theme.toggle': '切换深浅色',
+            'target.select.title': '选择应用目标',
+            'target.select.hint': '请选择要将素材应用到哪个角色或背景：',
+            'target.select.confirm': '确定应用',
+            'target.select.cancel': '取消',
+            'target.select.loading': '正在加载目标列表...',
+            'target.select.empty': '没有可用的角色或背景',
+            'target.select.stage': '背景',
+            'target.select.sprite': '角色',
+            'target.select.costumeCount': '{n} 个造型',
+            'target.select.soundCount': '{n} 个声音'
         },
         en: {
             'title': 'Material Plaza',
@@ -117,13 +127,23 @@
             'capture.hint': 'Please complete the captcha to continue',
             'remove': 'Remove',
             'editor.hint': 'Please open in standalone page to upload materials',
-            'editor.hintLink': 'Please open in standalone page to upload',
+            'editor.hintLink': 'Please open in standalone page rw-c.pages.dev/material-plaza/',
             'editor.uploadDisabled': 'Upload is disabled inside the editor',
             'upload.cover': 'Cover Image',
             'upload.coverOptional': '(optional)',
             'upload.coverHint': 'Select cover image (optional)',
             'captcha.title': 'Verification',
-            'theme.toggle': 'Toggle dark/light mode'
+            'theme.toggle': 'Toggle dark/light mode',
+            'target.select.title': 'Select Target',
+            'target.select.hint': 'Select which sprite or background to apply the material to:',
+            'target.select.confirm': 'Apply',
+            'target.select.cancel': 'Cancel',
+            'target.select.loading': 'Loading target list...',
+            'target.select.empty': 'No available sprites or backgrounds',
+            'target.select.stage': 'Stage',
+            'target.select.sprite': 'Sprite',
+            'target.select.costumeCount': '{n} costumes',
+            'target.select.soundCount': '{n} sounds'
         }
     };
 
@@ -698,7 +718,12 @@
 
         // 点击加载素材详情
         card.addEventListener('click', function () {
-            loadAndApplyMaterial(material);
+            // 声音和造型类型需要先选择应用目标
+            if (material.type === 'sound' || material.type === 'costume') {
+                loadAndApplyMaterial(material, true);
+            } else {
+                loadAndApplyMaterial(material);
+            }
         });
 
         return card;
@@ -721,12 +746,17 @@
     }
 
     // 加载并应用素材到编辑器
-    async function loadAndApplyMaterial(material) {
+    async function loadAndApplyMaterial(material, showTargetSelect) {
         try {
             showToast(__('toast.apply'), 'info');
             const fullData = await getMaterialBody(material.id);
             if (!fullData) {
                 showToast(__('toast.apply.fail'), 'error');
+                return;
+            }
+            // 声音和造型需要选择目标
+            if (showTargetSelect) {
+                openTargetSelectModal(material, fullData);
                 return;
             }
             // 通过桥接发送到编辑器
@@ -766,6 +796,135 @@
 
     function closeUploadModal() {
         uploadModal.style.display = 'none';
+    }
+
+    // ===== 目标选择弹窗 =====
+    var pendingTargetMaterial = null;
+
+    function openTargetSelectModal(material, materialData) {
+        pendingTargetMaterial = materialData || material;
+        var modal = document.getElementById('targetSelectModal');
+        var container = document.getElementById('targetListContainer');
+        var confirmBtn = document.getElementById('targetSelectConfirmBtn');
+        var title = document.getElementById('targetSelectTitle');
+        var hint = document.getElementById('targetSelectHint');
+
+        title.textContent = __('target.select.title');
+        hint.textContent = __('target.select.hint');
+        document.getElementById('targetSelectCancelBtn').textContent = __('target.select.cancel');
+        confirmBtn.textContent = __('target.select.confirm');
+
+        confirmBtn.disabled = true;
+        container.innerHTML = '<div class="target-list-loading"><div class="spinner"></div><p>' + __('target.select.loading') + '</p></div>';
+        modal.style.display = 'flex';
+
+        loadTargetList(container);
+    }
+
+    function closeTargetSelectModal() {
+        document.getElementById('targetSelectModal').style.display = 'none';
+        pendingTargetMaterial = null;
+    }
+
+    async function loadTargetList(container) {
+        try {
+            var targets;
+            if (window.MaterialPlazaBridge && window.MaterialPlazaBridge.requestTargetList) {
+                targets = await window.MaterialPlazaBridge.requestTargetList();
+            } else {
+                showToast('无法获取目标列表：不在编辑器内', 'error');
+                closeTargetSelectModal();
+                return;
+            }
+
+            if (!targets || targets.length === 0) {
+                container.innerHTML = '<div class="target-list-empty">' + __('target.select.empty') + '</div>';
+                return;
+            }
+
+            renderTargetList(container, targets);
+        } catch (err) {
+            console.error('Failed to load target list:', err);
+            container.innerHTML = '<div class="target-list-empty">' + __('target.select.empty') + '</div>';
+        }
+    }
+
+    function renderTargetList(container, targets) {
+        var html = '';
+        var selectedId = null;
+        var confirmBtn = document.getElementById('targetSelectConfirmBtn');
+
+        // 先显示背景，再显示角色
+        var stageTargets = targets.filter(function (t) { return t.isStage; });
+        var spriteTargets = targets.filter(function (t) { return !t.isStage; });
+        var ordered = stageTargets.concat(spriteTargets);
+
+        ordered.forEach(function (t) {
+            var typeLabel = t.isStage ? __('target.select.stage') : __('target.select.sprite');
+            var metaParts = [];
+            if (t.costumeCount > 0) metaParts.push(t.costumeCount + ' 个造型');
+            if (t.soundCount > 0) metaParts.push(t.soundCount + ' 个声音');
+            var meta = metaParts.join(' | ');
+
+            // 缩略图：背景使用舞台图标，角色使用第一个造型或默认图标
+            var thumbHtml = '';
+            if (t.isStage) {
+                thumbHtml = '<div class="target-list-item-thumb stage-thumb"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" opacity="0.5"><rect x="2" y="2" width="20" height="20" rx="2"/><rect x="6" y="6" width="12" height="12" rx="1"/></svg></div>';
+            } else {
+                thumbHtml = '<div class="target-list-item-thumb"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" opacity="0.5"><circle cx="12" cy="8" r="4"/><path d="M5 20v-2a7 7 0 0 1 14 0v2"/></svg></div>';
+            }
+
+            html += '<div class="target-list-item" data-target-id="' + escapeHtml(t.id) + '">' +
+                thumbHtml +
+                '<div class="target-list-item-info">' +
+                    '<div class="target-list-item-name">' + escapeHtml(t.name) + '</div>' +
+                    '<div class="target-list-item-meta">' + escapeHtml(typeLabel) + (meta ? ' | ' + escapeHtml(meta) : '') + '</div>' +
+                '</div>' +
+                '<span class="target-list-item-badge">' + escapeHtml(typeLabel) + '</span>' +
+                '</div>';
+        });
+
+        container.innerHTML = html;
+
+        // 点击选择
+        var items = container.querySelectorAll('.target-list-item');
+        items.forEach(function (item) {
+            item.addEventListener('click', function () {
+                items.forEach(function (i) { i.classList.remove('selected'); });
+                this.classList.add('selected');
+                selectedId = this.getAttribute('data-target-id');
+                confirmBtn.disabled = false;
+            });
+        });
+
+        // 确认按钮
+        confirmBtn.onclick = function () {
+            if (!selectedId) return;
+            confirmBtn.disabled = true;
+            applyMaterialToTarget(selectedId);
+        };
+    }
+
+    async function applyMaterialToTarget(targetId) {
+        if (!pendingTargetMaterial) return;
+        showToast(__('toast.apply'), 'info');
+        closeTargetSelectModal();
+
+        try {
+            if (window.MaterialPlazaBridge && window.MaterialPlazaBridge.requestApplyMaterialToTarget) {
+                window.MaterialPlazaBridge.requestApplyMaterialToTarget(targetId, pendingTargetMaterial);
+            } else {
+                window.parent.postMessage({
+                    channel: 'rwc-material-plaza',
+                    type: 'applyMaterial',
+                    data: Object.assign({}, pendingTargetMaterial, { targetId: targetId })
+                }, '*');
+            }
+            showToast(__('toast.apply.success'), 'success');
+        } catch (err) {
+            console.error('Failed to apply material:', err);
+            showToast(__('toast.apply.fail'), 'error');
+        }
     }
 
     // 根据文件扩展名判断素材类型
@@ -1156,6 +1315,14 @@
         document.getElementById('uploadModalClose').addEventListener('click', closeUploadModal);
         document.getElementById('uploadCancelBtn').addEventListener('click', closeUploadModal);
         document.getElementById('uploadSubmitBtn').addEventListener('click', handleUpload);
+        // 目标选择弹窗
+        document.getElementById('targetSelectClose').addEventListener('click', closeTargetSelectModal);
+        document.getElementById('targetSelectCancelBtn').addEventListener('click', closeTargetSelectModal);
+        document.getElementById('targetSelectModal').addEventListener('click', function (e) {
+            if (e.target === this || e.target.classList.contains('modal-overlay')) {
+                closeTargetSelectModal();
+            }
+        });
         document.getElementById('filePreviewRemove').addEventListener('click', function () {
             selectedFileData = null;
             document.getElementById('fileInput').value = '';
