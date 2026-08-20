@@ -57,7 +57,24 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
             'filter.approved': '已审核',
             'lang.switch': 'EN',
             'captcha.hint': '请完成验证后继续上传',
-            'theme.toggle': '切换深浅色'
+            'theme.toggle': '切换深浅色',
+            'detail.title': '扩展详细信息',
+            'detail.close': '关闭',
+            'detail.detailBtn': '详细信息',
+            'detail.name': '扩展名称',
+            'detail.author': '作者',
+            'detail.description': '描述',
+            'detail.iconURL': '图片 URL',
+            'detail.extURL': '扩展文件 URL',
+            'detail.docsURI': '文档链接',
+            'detail.sample': '示例作品链接',
+            'detail.reviewStatus': '审核状态',
+            'detail.uploadDate': '上传日期',
+            'detail.extId': '扩展 ID',
+            'detail.status.approved': '已审核',
+            'detail.status.unreviewed': '未审核',
+            'detail.copy': '复制',
+            'detail.copied': '已复制'
         },
         en: {
             'search.placeholder': 'Search extensions in experiment plaza...',
@@ -104,7 +121,24 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
             'filter.approved': 'Approved',
             'lang.switch': '中',
             'captcha.hint': 'Please complete the captcha to continue',
-            'theme.toggle': 'Toggle dark/light mode'
+            'theme.toggle': 'Toggle dark/light mode',
+            'detail.title': 'Extension Details',
+            'detail.close': 'Close',
+            'detail.detailBtn': 'Details',
+            'detail.name': 'Name',
+            'detail.author': 'Author',
+            'detail.description': 'Description',
+            'detail.iconURL': 'Cover Image URL',
+            'detail.extURL': 'Extension File URL',
+            'detail.docsURI': 'Docs URL',
+            'detail.sample': 'Sample Project URL',
+            'detail.reviewStatus': 'Review Status',
+            'detail.uploadDate': 'Upload Date',
+            'detail.extId': 'Extension ID',
+            'detail.status.approved': 'Approved',
+            'detail.status.unreviewed': 'Unreviewed',
+            'detail.copy': 'Copy',
+            'detail.copied': 'Copied'
         }
     };
 
@@ -484,6 +518,13 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
         emptyState.style.display = 'none';
         grid.innerHTML = '';
 
+        // 已加载的扩展排到前面优先显示
+        filtered.sort((a, b) => {
+            const la = loadedExtensions.has(a.extensionId) ? 1 : 0;
+            const lb = loadedExtensions.has(b.extensionId) ? 1 : 0;
+            return lb - la;
+        });
+
         filtered.forEach(ext => {
             const card = createExtensionCard(ext);
             grid.appendChild(card);
@@ -569,6 +610,18 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
 
         card.appendChild(footer);
 
+        // 详细信息按钮（小图标）
+        const detailBtn = document.createElement('button');
+        detailBtn.className = 'card-detail-icon';
+        detailBtn.title = __('detail.detailBtn');
+        detailBtn.setAttribute('aria-label', __('detail.detailBtn'));
+        detailBtn.innerHTML = '<svg t="1787200792517" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="6608" width="18" height="18"><path d="M755.57 354.669h-487.473c-22.452 0-40.622 18.17-40.622 40.622s18.171 40.621 40.622 40.621h487.473c22.454 0 40.621-18.169 40.621-40.621s-18.166-40.622-40.621-40.622zM755.57 192.178h-487.473c-22.452 0-40.622 18.17-40.622 40.622s18.171 40.622 40.622 40.622h487.473c22.454 0 40.621-18.171 40.621-40.622 0-22.453-18.166-40.622-40.621-40.622zM958.683 674.301v-563.369c0-44.867-36.374-81.245-81.245-81.245h-731.21c-44.866 0-81.245 36.379-81.245 81.245v812.454c0 44.869 36.38 81.247 81.245 81.247h479.19c12.915 2.64 26.864-1.045 36.886-11.069l284.876-284.875c9.38-9.382 13.213-22.199 11.503-34.389zM674.324 866.659v-146.385h146.386l-146.386 146.385zM877.437 639.027h-243.737c-22.45 0-40.621 18.171-40.621 40.624 0 0.073 0.004 0.146 0.005 0.219-0.001 0.073-0.005 0.146-0.005 0.219v243.299h-406.227c-22.45 0-40.622-18.169-40.622-40.621v-731.21c0-22.452 18.172-40.622 40.622-40.622h649.962c22.454 0 40.622 18.171 40.622 40.622v487.472z" fill="currentColor" p-id="6609"></path></svg>';
+        detailBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            showDetail(ext);
+        });
+        card.appendChild(detailBtn);
+
         // 文档链接和示例作品
         if (ext.docsURI || ext.sampleProject) {
             const links = document.createElement('div');
@@ -620,6 +673,10 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
                     check.title = '已加载';
                     check.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>';
                     card.insertBefore(check, card.firstChild);
+                }
+                // 哪个扩展加载出来就把它排到最前面优先显示
+                if (grid.firstElementChild && grid.firstElementChild !== card) {
+                    grid.insertBefore(card, grid.firstElementChild);
                 }
             }
         }
@@ -677,6 +734,115 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
                 warningModal.style.display = 'none';
             }
         });
+    }
+
+    // ===== 扩展详细信息弹窗 =====
+    function showDetail(ext) {
+        const modal = $('detailModal');
+        const titleEl = $('detailTitle');
+        const bodyEl = $('detailBody');
+        if (!modal || !bodyEl) return;
+
+        titleEl.textContent = __('detail.title');
+
+        const isApproved = ext.reviewStatus === 'approved';
+        const statusText = isApproved ? __('detail.status.approved') : __('detail.status.unreviewed');
+        const statusClass = isApproved ? 'safety-tag safety-tag--safe' : 'safety-tag safety-tag--danger';
+
+        // 图片预览
+        let coverHtml = '';
+        if (ext.iconURL) {
+            coverHtml =
+                '<div class="detail-cover">' +
+                '<img src="' + ext.iconURL + '" alt="' + escapeHtml(ext.name) + '" onerror="this.style.display=\'none\'">' +
+                '</div>';
+        }
+
+        // 字段行（可复制 URL）
+        const rows = [
+            { label: __('detail.name'), value: ext.name, copy: false },
+            { label: __('detail.author'), value: ext.author, copy: false },
+            { label: __('detail.extId'), value: ext.id, copy: true },
+            { label: __('detail.iconURL'), value: ext.iconURL || '', copy: true },
+            { label: __('detail.extURL'), value: ext.extensionURL || '', copy: true },
+            { label: __('detail.docsURI'), value: ext.docsURI || '', copy: true },
+            { label: __('detail.sample'), value: ext.sampleProject || '', copy: true },
+            { label: __('detail.uploadDate'), value: ext.uploadDate ? new Date(ext.uploadDate).toLocaleString(currentLang === 'zh' ? 'zh-CN' : 'en-US') : '', copy: false }
+        ];
+
+        let rowsHtml = '';
+        rows.forEach(function (row) {
+            if (!row.value) return;
+            rowsHtml += '<div class="detail-row">';
+            rowsHtml += '<div class="detail-row-label">' + row.label + '</div>';
+            rowsHtml += '<div class="detail-row-value">';
+            if (row.copy) {
+                rowsHtml += '<code class="detail-url" title="' + escapeHtml(row.value) + '">' + escapeHtml(row.value) + '</code>';
+                rowsHtml += '<button class="detail-copy-btn" data-copy="' + escapeAttr(row.value) + '">' + __('detail.copy') + '</button>';
+            } else {
+                rowsHtml += '<span>' + escapeHtml(row.value) + '</span>';
+            }
+            rowsHtml += '</div>';
+            rowsHtml += '</div>';
+        });
+
+        bodyEl.innerHTML =
+            coverHtml +
+            '<div class="detail-status-row"><span class="' + statusClass + '">' + statusText + '</span></div>' +
+            rowsHtml +
+            '<div class="detail-row">' +
+            '<div class="detail-row-label">' + __('detail.description') + '</div>' +
+            '<div class="detail-row-value"><p class="detail-desc">' + escapeHtml(ext.description || '') + '</p></div>' +
+            '</div>';
+
+        // 绑定复制按钮
+        bodyEl.querySelectorAll('.detail-copy-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const text = btn.getAttribute('data-copy');
+                copyText(text).then(function () {
+                    const original = btn.textContent;
+                    btn.textContent = __('detail.copied');
+                    setTimeout(function () { btn.textContent = original; }, 1500);
+                });
+            });
+        });
+
+        modal.style.display = 'flex';
+    }
+
+    function closeDetailModal() {
+        const modal = $('detailModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function copyText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(text);
+        }
+        return new Promise(function (resolve) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta);
+            resolve();
+        });
+    }
+
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function escapeAttr(str) {
+        return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     function loadExtension(ext) {
@@ -1002,6 +1168,19 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
                 setLang(currentLang === 'zh' ? 'en' : 'zh');
             });
         }
+
+        // 详细信息弹窗关闭事件
+        const detailModal = $('detailModal');
+        if (detailModal) {
+            const closeBtn = $('detailCloseBtn');
+            const closeFooterBtn = $('detailCloseFooterBtn');
+            if (closeBtn) closeBtn.addEventListener('click', closeDetailModal);
+            if (closeFooterBtn) closeFooterBtn.addEventListener('click', closeDetailModal);
+            detailModal.addEventListener('click', function (e) {
+                if (e.target === detailModal) closeDetailModal();
+            });
+        }
+
         loadExtensions();
     }
 })();
