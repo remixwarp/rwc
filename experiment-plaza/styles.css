@@ -14,8 +14,8 @@
     --text-muted: #999999;
     --border-color: #e0e0e0;
     --border-hover: #b0b0b0;
-    --accent-color: #3C7699;
-    --accent-hover: #2e5c7a;
+    --accent-color: #75c1c4;
+    --accent-hover: #5fa8ab;
     --danger-color: #f44336;
     --danger-hover: #d32f2f;
     --success-color: #4caf50;
@@ -47,8 +47,8 @@ body {
     --text-muted: #999999;
     --border-color: #e0e0e0;
     --border-hover: #b0b0b0;
-    --accent-color: #3C7699;
-    --accent-hover: #2e5c7a;
+    --accent-color: #75c1c4;
+    --accent-hover: #5fa8ab;
     --danger-color: #f44336;
     --danger-hover: #d32f2f;
     --success-color: #4caf50;
@@ -371,19 +371,20 @@ body {
     color: var(--accent-color);
 }
 
-/* 详细信息小图标按钮（日期下方，方形） */
+/* 详细信息小图标按钮（日期下方右侧，小正方形） */
 .card-detail-icon {
-    display: flex;
+    display: inline-flex;
+    align-self: flex-end;
     align-items: center;
     justify-content: center;
-    margin: 10px 14px 14px;
-    width: calc(100% - 28px);
-    height: 30px;
+    margin: 4px 14px 12px;
+    width: 28px;
+    height: 28px;
     padding: 0;
     border: 1px solid var(--border-color);
     border-radius: 4px;
     background: var(--bg-card);
-    color: #999999;
+    color: #666666;
     cursor: pointer;
     transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
@@ -398,7 +399,7 @@ body {
     display: block;
 }
 
-/* 深色模式下图标颜色调亮 */
+/* 深色模式下图标颜色调亮，随深浅主题自动变换 */
 [data-theme="dark"] .card-detail-icon {
     color: #c4c4c4;
 }
