@@ -74,7 +74,11 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
             'detail.status.approved': '已审核',
             'detail.status.unreviewed': '未审核',
             'detail.copy': '复制',
-            'detail.copied': '已复制'
+            'detail.copied': '已复制',
+            'status.connecting': '连接中...',
+            'status.connected': '已连接',
+            'status.disconnected': '未连接',
+            'status.text': '必须连接到RemixWarp编辑器才能正常添加扩展'
         },
         en: {
             'search.placeholder': 'Search extensions in experiment plaza...',
@@ -138,7 +142,11 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
             'detail.status.approved': 'Approved',
             'detail.status.unreviewed': 'Unreviewed',
             'detail.copy': 'Copy',
-            'detail.copied': 'Copied'
+            'detail.copied': 'Copied',
+            'status.connecting': 'Connecting...',
+            'status.connected': 'Connected',
+            'status.disconnected': 'Disconnected',
+            'status.text': 'Must connect to RemixWarp editor to add extensions'
         }
     };
 
@@ -191,6 +199,8 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
         // Update theme toggle title
         const themeBtn = document.getElementById('themeToggleBtn');
         if (themeBtn) themeBtn.title = __('theme.toggle');
+        // Update connection status
+        updateConnectionStatusUI(currentConnectionStatus);
         // Rerender
         renderExtensions();
     }
@@ -333,10 +343,56 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
                 editorReady = true;
                 break;
         }
+        // 编辑器有响应即视为已连接
+        if (type === 'editorLocale' || type === 'editorReady' || type === 'forwardGithubResponse') {
+            setConnectionStatus('connected');
+        }
     });
 
     // 通知编辑器已就绪
     sendToEditor('plazaReady');
+
+    // ===== 连接状态跟踪 =====
+    let currentConnectionStatus = 'connecting'; // 'connecting' | 'connected' | 'disconnected'
+
+    function updateConnectionStatusUI(status) {
+        const dot = document.getElementById('statusDot');
+        const label = document.getElementById('statusLabel');
+        const hint = document.getElementById('bottomHint');
+        if (!dot || !label) return;
+        // 移除所有状态类
+        dot.classList.remove('status-dot--connecting', 'status-dot--connected', 'status-dot--disconnected');
+        if (status === 'connecting') {
+            dot.classList.add('status-dot--connecting');
+            label.textContent = __('status.connecting');
+        } else if (status === 'connected') {
+            dot.classList.add('status-dot--connected');
+            label.textContent = __('status.connected');
+        } else if (status === 'disconnected') {
+            dot.classList.add('status-dot--disconnected');
+            label.textContent = __('status.disconnected');
+        }
+        if (hint) {
+            hint.textContent = __('status.text');
+        }
+    }
+
+    function setConnectionStatus(status) {
+        if (status === currentConnectionStatus) return;
+        currentConnectionStatus = status;
+        updateConnectionStatusUI(status);
+        if (status === 'connected' && connectionTimeout) {
+            clearTimeout(connectionTimeout);
+            connectionTimeout = null;
+        }
+    }
+
+    // 连接超时：15 秒后标记为未连接
+    let connectionTimeout = setTimeout(function () {
+        if (currentConnectionStatus === 'connecting') {
+            setConnectionStatus('disconnected');
+        }
+    }, 15000);
 
     // ===== GitHub API =====
     async function githubFetch(path) {
@@ -1159,6 +1215,8 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
         notifyReady();
         // Initialize theme toggle
         initThemeToggle();
+        // Initialize connection status UI
+        updateConnectionStatusUI(currentConnectionStatus);
         // Apply current language
         setLang(currentLang);
         // Language toggle button
