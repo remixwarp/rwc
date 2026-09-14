@@ -1,0 +1,22 @@
+{
+  "name": "Icy!",
+  "author": "???",
+  "description": "Icy",
+  "theme": {
+    "gui": "light",
+    "accent": {
+      "name": "pale blue",
+      "color": "#3C7699"
+    },
+    "isDark": false,
+    "displayName": "浅色",
+    "username": "player4841"
+  },
+  "accent": {
+    "name": "pale blue",
+    "color": "#3C7699"
+  },
+  "isDark": false,
+  "uploadDate": "2026-09-14T23:49:09.552Z",
+  "id": "c_mu1w9rfy_5nd3"
+}
