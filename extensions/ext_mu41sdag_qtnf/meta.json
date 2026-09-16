@@ -1,0 +1,12 @@
+{
+  "name": "图片渲染",
+  "author": "qq:Catnap gh:LycheeCat bilibili:Turboratch",
+  "description": "图片渲染扩展",
+  "extensionId": "ext_mu41sdag_qtnf",
+  "extensionFile": "extension.js",
+  "iconFile": "icon.jpg",
+  "docsURI": "https://space.bilibili.com/3546662593104166?spm_id_from=333.1007.0.0",
+  "sampleProject": "",
+  "reviewStatus": "unreviewed",
+  "uploadDate": "2026-09-16T11:59:08.405Z"
+}
