@@ -1,7 +1,7 @@
 {
   "name": "图片渲染",
   "author": "qq:Catnap gh:LycheeCat bilibili:Turboratch",
-  "description": "图片渲染扩展",
+  "description": "图片导入扩展，支持导入大多数格式的图片文件，也可导入以base64储存的文本并对图片进行剪切、移动等操作。",
   "extensionId": "ext_mu41sdag_qtnf",
   "extensionFile": "extension.js",
   "iconFile": "icon.jpg",

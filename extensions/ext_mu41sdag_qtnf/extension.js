@@ -1,11 +1,9 @@
-// 图片渲染扩展
-// By LycheeCat Turboratch
-// https://space.bilibili.com/3546662593104166?spm_id_from=333.1007.0.0
+// By Turboratch
 (function (Scratch) {
   'use strict';
 
   if (!Scratch.extensions.unsandboxed) {
-    throw new Error('图片显示扩展必须以非沙箱模式运行（加载时勾选“不使用沙盒运行扩展”）');
+    throw new Error('图片渲染扩展必须以非沙箱模式运行（加载时勾选“不使用沙盒运行扩展”）');
   }
 
   const vm = Scratch.vm;
@@ -69,6 +67,17 @@
 
   const MAX_DIMENSION = 4096;
 
+  const SHAPE_ITEMS = [
+    { text: '矩形', value: 'rect' },
+    { text: '平行四边形', value: 'parallelogram' },
+    { text: '圆形', value: 'circle' },
+    { text: '圆角矩形', value: 'rounded' },
+    { text: '菱形', value: 'diamond' },
+    { text: '五角星', value: 'star' },
+    { text: '六边形', value: 'hexagon' },
+    { text: '三角形', value: 'triangle' },
+  ];
+
   function loadImage(dataUrl) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -91,12 +100,27 @@
       this._drawableId = null;
       this._x = 0;
       this._y = 0;
-      this._scale = 50;
+      this._scale = 100;
       this._direction = 90;
       this._skinW = 0;
       this._skinH = 0;
       this._visible = false;
       this._error = '';
+      this._shape = 'rect';
+      this._blur = 0;
+      this._picker = null;
+      this._pickerChain = Promise.resolve();
+      this._pickerGeneration = 0;
+      const self = this;
+      if (vm && vm.runtime && typeof vm.runtime.on === 'function') {
+        vm.runtime.on('PROJECT_STOP_ALL', function () {
+          self._pickerGeneration++;
+          if (self._picker) {
+            self._picker.finish('');
+            self._picker = null;
+          }
+        });
+      }
     }
 
     getInfo() {
@@ -173,6 +197,14 @@
               R: { type: Scratch.ArgumentType.NUMBER, defaultValue: 0 },
             },
           },
+          {
+            opcode: 'setBlur',
+            blockType: Scratch.BlockType.COMMAND,
+            text: '将图片模糊度设为 [B]',
+            arguments: {
+              B: { type: Scratch.ArgumentType.NUMBER, defaultValue: 0 },
+            },
+          },
           '---',
           {
             opcode: 'cropImage',
@@ -191,9 +223,22 @@
             text: '重置裁剪',
           },
           {
+            opcode: 'setShape',
+            blockType: Scratch.BlockType.COMMAND,
+            text: '将图片形状设为 [SHAPE]',
+            arguments: {
+              SHAPE: { type: Scratch.ArgumentType.STRING, menu: 'SHAPE_MENU' },
+            },
+          },
+          {
             opcode: 'fitToStage',
             blockType: Scratch.BlockType.COMMAND,
             text: '适配舞台',
+          },
+          {
+            opcode: 'coverStage',
+            blockType: Scratch.BlockType.COMMAND,
+            text: '铺满舞台',
           },
           '---',
           {
@@ -228,6 +273,12 @@
             disableMonitor: true,
           },
         ],
+        menus: {
+          SHAPE_MENU: {
+            acceptReporters: true,
+            items: SHAPE_ITEMS,
+          },
+        },
       };
     }
 
@@ -279,7 +330,64 @@
       this._crop = { left: 0, right: 0, top: 0, bottom: 0 };
       this._cropW = this._origW;
       this._cropH = this._origH;
+      this._shape = 'rect';
+      this._blur = 0;
       await this._applySkin();
+      this._fitToStage();
+    }
+
+    _traceShape(ctx, w, h) {
+      const m = Math.min(w, h);
+      if (this._shape === 'circle') {
+        ctx.ellipse(w / 2, h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+      } else if (this._shape === 'rounded') {
+        const r = Math.min(m * 0.12, w / 2, h / 2);
+        ctx.moveTo(r, 0);
+        ctx.lineTo(w - r, 0);
+        ctx.arcTo(w, 0, w, r, r);
+        ctx.lineTo(w, h - r);
+        ctx.arcTo(w, h, w - r, h, r);
+        ctx.lineTo(r, h);
+        ctx.arcTo(0, h, 0, h - r, r);
+        ctx.lineTo(0, r);
+        ctx.arcTo(0, 0, r, 0, r);
+      } else if (this._shape === 'parallelogram') {
+        const s = Math.min((h * 53.21094) / 177, w - 1);
+        ctx.moveTo(s, 0);
+        ctx.lineTo(w, 0);
+        ctx.lineTo(w - s, h);
+        ctx.lineTo(0, h);
+      } else if (this._shape === 'diamond') {
+        ctx.moveTo(w / 2, 0);
+        ctx.lineTo(w, h / 2);
+        ctx.lineTo(w / 2, h);
+        ctx.lineTo(0, h / 2);
+      } else if (this._shape === 'star') {
+        const outer = m / 2;
+        const inner = outer * 0.38;
+        for (let i = 0; i < 10; i++) {
+          const rad = i % 2 === 0 ? outer : inner;
+          const a = -Math.PI / 2 + (i * Math.PI) / 5;
+          const x = w / 2 + Math.cos(a) * rad;
+          const y = h / 2 + Math.sin(a) * rad;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+      } else if (this._shape === 'hexagon') {
+        const rad = m / 2;
+        for (let i = 0; i < 6; i++) {
+          const a = -Math.PI / 2 + (i * Math.PI) / 3;
+          const x = w / 2 + Math.cos(a) * rad;
+          const y = h / 2 + Math.sin(a) * rad;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+      } else if (this._shape === 'triangle') {
+        ctx.moveTo(w / 2, 0);
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+      }
+      ctx.closePath();
     }
 
     async _applySkin() {
@@ -293,7 +401,18 @@
       canvas.width = w;
       canvas.height = h;
       const ctx = canvas.getContext('2d');
+      if (this._blur > 0) {
+        ctx.filter = 'blur(' + this._blur + 'px)';
+      }
+      if (this._shape !== 'rect') {
+        ctx.save();
+        this._traceShape(ctx, w, h);
+        ctx.clip();
+      }
       ctx.drawImage(this._image, this._crop.left, this._crop.top, w, h, 0, 0, w, h);
+      if (this._shape !== 'rect') {
+        ctx.restore();
+      }
       if (this._skinId === null) {
         this._skinId = r.createBitmapSkin(canvas, 1, [w / 2, h / 2]);
       } else {
@@ -318,7 +437,6 @@
       r.dirty = true;
     }
 
-    // 把当前状态同步到渲染器
     _syncDrawable() {
       const r = this._getRenderer();
       const drawableId = this._ensureDrawable();
@@ -339,7 +457,25 @@
       const stageH = 360;
       const skinW = this._skinW || this._cropW || 1;
       const skinH = this._skinH || this._cropH || 1;
-      this._scale = Math.min(stageW / skinW, stageH / skinH);
+      this._scale = Math.min(stageW / skinW, stageH / skinH) * 100;
+      this._x = 0;
+      this._y = 0;
+      this._direction = 90;
+      if (this._drawableId !== null) {
+        this._syncDrawable();
+      }
+    }
+
+    _coverStage() {
+      if (!this._image) {
+        this._setError('请先导入图片文件');
+        return;
+      }
+      const stageW = 480;
+      const stageH = 360;
+      const skinW = this._skinW || this._cropW || 1;
+      const skinH = this._skinH || this._cropH || 1;
+      this._scale = Math.max(stageW / skinW, stageH / skinH) * 100;
       this._x = 0;
       this._y = 0;
       this._direction = 90;
@@ -349,12 +485,31 @@
     }
 
     _showFilePicker(accept) {
+      const self = this;
+      const gen = this._pickerGeneration;
+      const result = this._pickerChain.then(function () {
+        if (self._pickerGeneration !== gen) return '';
+        return self._openPicker(accept);
+      });
+      this._pickerChain = result.then(
+        function () {},
+        function () {}
+      );
+      return result;
+    }
+
+    _openPicker(accept) {
+      if (this._picker) {
+        this._picker.finish('');
+        this._picker = null;
+      }
       return new Promise((resolve) => {
         let settled = false;
         const finish = (value) => {
           if (settled) return;
           settled = true;
           cleanup();
+          this._picker = null;
           resolve(value);
         };
         const outer = document.createElement('div');
@@ -387,10 +542,6 @@
         outer.appendChild(input);
         document.body.appendChild(outer);
 
-        const onStop = () => finish('');
-        if (vm && vm.runtime && typeof vm.runtime.on === 'function') {
-          vm.runtime.on('PROJECT_STOP_ALL', onStop);
-        }
         const onKey = (e) => {
           if (e.key === 'Escape') finish('');
         };
@@ -398,9 +549,6 @@
 
         const cleanup = () => {
           document.removeEventListener('keydown', onKey, true);
-          if (vm && vm.runtime && typeof vm.runtime.off === 'function') {
-            vm.runtime.off('PROJECT_STOP_ALL', onStop);
-          }
           try {
             document.body.removeChild(outer);
           } catch (e) {
@@ -431,6 +579,7 @@
         outer.addEventListener('click', (e) => {
           if (e.target === outer) finish('');
         });
+        this._picker = { finish: finish };
       });
     }
 
@@ -482,7 +631,10 @@
       try {
         this._visible = false;
         if (this._drawableId !== null) {
-          this._ensureRendererState().updateDrawableVisible(this._drawableId, false);
+          const r = this._ensureRendererState();
+          if (this._drawableId !== null) {
+            r.updateDrawableVisible(this._drawableId, false);
+          }
         }
         this._setError('');
       } catch (e) {
@@ -495,7 +647,10 @@
         this._x = Cast.toNumber(args.X);
         this._y = Cast.toNumber(args.Y);
         if (this._drawableId !== null) {
-          this._ensureRendererState().updateDrawablePosition(this._drawableId, [this._x, this._y]);
+          const r = this._ensureRendererState();
+          if (this._drawableId !== null) {
+            r.updateDrawablePosition(this._drawableId, [this._x, this._y]);
+          }
         }
         this._setError('');
       } catch (e) {
@@ -505,9 +660,12 @@
 
     setScale(args) {
       try {
-        this._scale = Math.max(0, Cast.toNumber(args.S) / 100);
+        this._scale = Math.max(0, Cast.toNumber(args.S));
         if (this._drawableId !== null) {
-          this._ensureRendererState().updateDrawableScale(this._drawableId, [this._scale, this._scale]);
+          const r = this._ensureRendererState();
+          if (this._drawableId !== null) {
+            r.updateDrawableScale(this._drawableId, [this._scale, this._scale]);
+          }
         }
         this._setError('');
       } catch (e) {
@@ -518,9 +676,12 @@
     setWidth(args) {
       try {
         const w = Math.max(0, Cast.toNumber(args.W));
-        this._scale = this._cropW > 0 ? w / this._cropW : this._scale;
+        this._scale = this._cropW > 0 ? (w / this._cropW) * 100 : this._scale;
         if (this._drawableId !== null) {
-          this._ensureRendererState().updateDrawableScale(this._drawableId, [this._scale, this._scale]);
+          const r = this._ensureRendererState();
+          if (this._drawableId !== null) {
+            r.updateDrawableScale(this._drawableId, [this._scale, this._scale]);
+          }
         }
         this._setError('');
       } catch (e) {
@@ -531,9 +692,12 @@
     setHeight(args) {
       try {
         const h = Math.max(0, Cast.toNumber(args.H));
-        this._scale = this._cropH > 0 ? h / this._cropH : this._scale;
+        this._scale = this._cropH > 0 ? (h / this._cropH) * 100 : this._scale;
         if (this._drawableId !== null) {
-          this._ensureRendererState().updateDrawableScale(this._drawableId, [this._scale, this._scale]);
+          const r = this._ensureRendererState();
+          if (this._drawableId !== null) {
+            r.updateDrawableScale(this._drawableId, [this._scale, this._scale]);
+          }
         }
         this._setError('');
       } catch (e) {
@@ -545,7 +709,22 @@
       try {
         this._direction = Cast.toNumber(args.R);
         if (this._drawableId !== null) {
-          this._ensureRendererState().updateDrawableDirection(this._drawableId, this._direction);
+          const r = this._ensureRendererState();
+          if (this._drawableId !== null) {
+            r.updateDrawableDirection(this._drawableId, this._direction);
+          }
+        }
+        this._setError('');
+      } catch (e) {
+        this._setError(e && e.message ? e.message : String(e));
+      }
+    }
+
+    async setBlur(args) {
+      try {
+        this._blur = Math.max(0, Cast.toNumber(args.B));
+        if (this._image) {
+          await this._applySkin();
         }
         this._setError('');
       } catch (e) {
@@ -590,9 +769,38 @@
       }
     }
 
+    async setShape(args) {
+      try {
+        const shape = Cast.toString(args.SHAPE);
+        const names = SHAPE_ITEMS.map(function (i) {
+          return i.value;
+        });
+        this._shape = names.indexOf(shape) !== -1 ? shape : 'rect';
+        if (this._image) {
+          await this._applySkin();
+        }
+        this._setError('');
+      } catch (e) {
+        this._setError(e && e.message ? e.message : String(e));
+      }
+    }
+
+    getShape() {
+      return this._shape;
+    }
+
     fitToStage() {
       try {
         this._fitToStage();
+        this._setError('');
+      } catch (e) {
+        this._setError(e && e.message ? e.message : String(e));
+      }
+    }
+
+    coverStage() {
+      try {
+        this._coverStage();
         this._setError('');
       } catch (e) {
         this._setError(e && e.message ? e.message : String(e));
@@ -608,11 +816,11 @@
     }
 
     getScreenWidth() {
-      return this._cropW * this._scale;
+      return (this._cropW * this._scale) / 100;
     }
 
     getScreenHeight() {
-      return this._cropH * this._scale;
+      return (this._cropH * this._scale) / 100;
     }
 
     isLoaded() {
