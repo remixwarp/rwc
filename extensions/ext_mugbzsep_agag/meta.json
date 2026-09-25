@@ -1,0 +1,12 @@
+{
+  "name": "音乐 +",
+  "author": "ChessBrainIsNotHuman",
+  "description": "加入了更多的音乐模块，让程序里的音乐栩栩如生。",
+  "extensionId": "ext_mugbzsep_agag",
+  "extensionFile": "extension.js",
+  "iconFile": "icon.png",
+  "docsURI": "",
+  "sampleProject": "",
+  "reviewStatus": "unreviewed",
+  "uploadDate": "2026-09-25T02:18:04.573Z"
+}
