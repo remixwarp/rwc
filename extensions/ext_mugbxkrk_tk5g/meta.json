@@ -1,0 +1,12 @@
+{
+  "name": "成就&排行榜",
+  "author": "ChessBrainIsNotHuman",
+  "description": "加入了Gandi的成就与排行榜系统，目前还在测试中",
+  "extensionId": "ext_mugbxkrk_tk5g",
+  "extensionFile": "extension.js",
+  "iconFile": "icon.png",
+  "docsURI": "",
+  "sampleProject": "",
+  "reviewStatus": "unreviewed",
+  "uploadDate": "2026-09-25T02:16:21.352Z"
+}
