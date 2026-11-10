@@ -4,7 +4,9 @@
     // ===== 配置 =====
     const GITHUB_REPO_OWNER = 'remixwarp';
     const GITHUB_REPO_NAME = 'rwc';
-    const GITHUB_API_BASE = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}`;
+    // 写转发服务（rw-bot-token Worker）：token 由服务端持有并注入，前端不出现 PAT。
+    const FORWARD_BASE = 'https://bot-api.rewp.de5.net';
+    const GITHUB_API_BASE = `${FORWARD_BASE}/api/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}`;
     const GITHUB_RAW_BASE = 'https://rw-c.pages.dev';
 const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
     const EXTENSIONS_PATH = 'extensions';
@@ -413,12 +415,9 @@ const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
         return res.json();
     }
 
-    // 带认证的写操作（上传需要）
-    const GITHUB_TOKEN = ['ghp_fLBsu', 'milohGrz7H7m', 'f0ZAcdnMkV', 'wlO1928J6'].join('');
 
     async function githubWrite(path, method, body) {
         const headers = {
-            'Authorization': `token ${GITHUB_TOKEN}`,
             'Accept': 'application/vnd.github.v3+json',
             'Content-Type': 'application/json'
         };

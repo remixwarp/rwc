@@ -3,8 +3,9 @@
 
     const GITHUB_REPO_OWNER = 'remixwarp';
     const GITHUB_REPO_NAME = 'rwc';
-    const GITHUB_API_BASE = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}`;
-    const GITHUB_TOKEN = ['ghp_fLBsu', 'milohGrz7H7m', 'f0ZAcdnMkV', 'wlO1928J6'].join('');
+    // 写转发服务（rw-bot-token Worker）：token 由服务端持有并注入，前端不出现 PAT。
+    const FORWARD_BASE = 'https://bot-api.rewp.de5.net';
+    const GITHUB_API_BASE = `${FORWARD_BASE}/api/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}`;
     const GH_PROXY_PREFIX = 'https://gh-proxy.org/';
     const CONFIGS_PATH = 'configs';
 
@@ -246,7 +247,6 @@
             ...options.headers
         };
         if (auth) {
-            headers['Authorization'] = `token ${GITHUB_TOKEN}`;
             // Content-Type only needed when we actually send a JSON body on
             // auth'd writes; it's another header that can trigger preflight
             // on reads, so only add when writing (i.e. when body exists).
